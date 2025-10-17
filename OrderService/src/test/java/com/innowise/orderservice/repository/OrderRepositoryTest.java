@@ -8,10 +8,12 @@ import com.innowise.orderservice.model.entity.OrderItem;
 import com.innowise.orderservice.specification.OrderSpecification;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
@@ -169,5 +171,51 @@ class OrderRepositoryTest {
 
         assertThat(result)
                 .hasSize(4);
+    }
+
+    @Test
+    void findAll_withStatusSpecification_shouldReturnFilteredPage() {
+
+        entityManager.persist(order1);
+        entityManager.persist(order2);
+
+        Specification<Order> spec = (root, query, cb) ->
+                cb.equal(root.get("status"), OrderStatus.NEW);
+
+        var page = orderRepository.findAll(spec, PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).hasSize(2);
+        assertThat(page.getContent().get(0).getStatus()).isEqualTo(OrderStatus.NEW);
+    }
+
+    @Test
+    void deleteById_shouldRemoveOrder() {
+        entityManager.persist(order);
+
+        Long id = order.getId();
+        orderRepository.deleteById(id);
+
+        assertThat(orderRepository.findById(id)).isEmpty();
+    }
+
+    @Test
+    @Transactional
+    void findByIdWithItems_shouldReturnOrderWithFetchedItems() {
+        Item item = new Item();
+        item.setName("Pen");
+        item.setPrice(BigDecimal.valueOf(1.99));
+        entityManager.persist(item);
+
+
+
+        entityManager.persist(order);
+        entityManager.flush();
+        entityManager.clear();
+
+        Optional<Order> result = orderRepository.findByIdWithItems(order.getId());
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getItems()).hasSize(1);
+        assertThat(result.get().getItems().get(0).getItem().getName()).isEqualTo("Pen");
     }
 }
