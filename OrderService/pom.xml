@@ -27,7 +27,6 @@
         <url/>
     </scm>
     <properties>
-        <sonar.organization>dshparko</sonar.organization>
         <sonar.exclusions>**/config/**</sonar.exclusions>
         <java.version>21</java.version>
         <mapstruct.version>1.6.3</mapstruct.version>
@@ -139,7 +138,6 @@
                     <target>${java.version}</target>
                     <release>${java.version}</release>
                     <compilerArgs>
-                        <arg>--enable-preview</arg>
                         <arg>-Amapstruct.defaultComponentModel=spring</arg>
                     </compilerArgs>
                     <annotationProcessorPaths>
