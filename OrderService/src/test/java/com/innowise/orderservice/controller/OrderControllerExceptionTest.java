@@ -1,5 +1,6 @@
 package com.innowise.orderservice.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.innowise.orderservice.exception.ApiErrorHandler;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
 import com.innowise.orderservice.service.OrderService;
@@ -11,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -27,6 +29,9 @@ class OrderControllerExceptionTest {
 
     @MockitoBean
     private OrderService orderService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
     void shouldReturn403_whenAccessDenied() throws Exception {
@@ -51,4 +56,17 @@ class OrderControllerExceptionTest {
         mockMvc.perform(post("/api/v1/orders"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void shouldReturn500_whenUnhandledExceptionOccurs() throws Exception {
+
+        when(orderService.getOrderById(1L)).thenThrow(new RuntimeException("Unexpected failure"));
+
+        mockMvc.perform(get("/api/v1/orders/1"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.error").value("Unexpected failure"))
+                .andExpect(jsonPath("$.path").value("/api/v1/orders/1"));
+    }
+
 }
