@@ -175,9 +175,20 @@ class OrderRepositoryTest {
 
     @Test
     void findAll_withStatusSpecification_shouldReturnFilteredPage() {
+        Order order11 = new Order();
+        order11.setStatus(OrderStatus.NEW);
+        order11.setCreationDate(LocalDate.now());
+        order11.setUserId(103L);
+        order1.setItems(List.of());
 
-        entityManager.persist(order1);
-        entityManager.persist(order2);
+        Order order222 = new Order();
+        order222.setStatus(OrderStatus.DELIVERED);
+        order222.setCreationDate(LocalDate.now());
+        order222.setUserId(104L);
+        order222.setItems(List.of());
+
+        entityManager.persist(order11);
+        entityManager.persist(order222);
 
         Specification<Order> spec = (root, query, cb) ->
                 cb.equal(root.get("status"), OrderStatus.NEW);
@@ -190,9 +201,14 @@ class OrderRepositoryTest {
 
     @Test
     void deleteById_shouldRemoveOrder() {
-        entityManager.persist(order);
+        Order order111 = new Order();
+        order111.setStatus(OrderStatus.NEW);
+        order111.setCreationDate(LocalDate.now());
+        order111.setUserId(102L);
+        order111.setItems(List.of());
+        entityManager.persist(order111);
 
-        Long id = order.getId();
+        Long id = order111.getId();
         orderRepository.deleteById(id);
 
         assertThat(orderRepository.findById(id)).isEmpty();
@@ -206,13 +222,21 @@ class OrderRepositoryTest {
         item.setPrice(BigDecimal.valueOf(1.99));
         entityManager.persist(item);
 
+        OrderItem orderItem1 = new OrderItem();
+        orderItem1.setItem(item);
+        orderItem1.setQuantity(2);
 
-
-        entityManager.persist(order);
+        Order order111 = new Order();
+        order111.setStatus(OrderStatus.NEW);
+        order111.setCreationDate(LocalDate.now());
+        order111.setUserId(101L);
+        orderItem1.setOrder(order111);
+        order111.setItems(List.of(orderItem1));
+        entityManager.persist(order111);
         entityManager.flush();
         entityManager.clear();
 
-        Optional<Order> result = orderRepository.findByIdWithItems(order.getId());
+        Optional<Order> result = orderRepository.findByIdWithItems(order111.getId());
 
         assertThat(result).isPresent();
         assertThat(result.get().getItems()).hasSize(1);
