@@ -139,7 +139,7 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found by ID: " + userId));
     }
 
-    private Map<Long, UserDto> fetchUsersByIds(List<Long> userIds) {
+    Map<Long, UserDto> fetchUsersByIds(List<Long> userIds) {
         return Optional.ofNullable(
                 userClient.getUsersByIds(userIds)
                         .flatMap(page -> Flux.fromIterable(page.getContent()))
@@ -148,7 +148,7 @@ public class OrderServiceImpl implements OrderService {
         ).orElseGet(Collections::emptyMap);
     }
 
-    private OrderDto enrichWithUser(OrderDto dto, UserDto user) {
+    OrderDto enrichWithUser(OrderDto dto, UserDto user) {
         return new OrderDto(dto.id(), dto.status(), dto.creationDate(), dto.items(), user);
     }
 

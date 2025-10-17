@@ -6,6 +6,7 @@ import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
 import com.innowise.orderservice.model.dto.OrderDto;
+import com.innowise.orderservice.model.dto.OrderFilterDto;
 import com.innowise.orderservice.model.dto.userservice.UserDto;
 import com.innowise.orderservice.model.entity.Item;
 import com.innowise.orderservice.model.entity.Order;
@@ -18,10 +19,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.Spy;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -40,6 +48,7 @@ class OrderServiceImplTest {
     @Mock
     private JwtEmailExtractor jwtEmailExtractor;
 
+    @Spy
     @InjectMocks
     private OrderServiceImpl orderService;
 
@@ -153,5 +162,31 @@ class OrderServiceImplTest {
         verify(orderRepository).save(order);
         verify(orderMapper).map(dtoItem);
         verify(itemRepository).findById(itemId);
+    }
+
+    @Test
+    void searchOrders_shouldReturnMappedAndEnrichedPage() {
+        Order orderIn = new Order();
+        orderIn.setId(1L);
+        orderIn.setUserId(5L);
+        orderIn.setStatus(OrderStatus.NEW);
+        orderIn.setCreationDate(LocalDate.now());
+
+        UserDto userDto = new UserDto(5L, "Darya", "Shparko", "darya@example.com", LocalDate.of(2000, 2, 22), List.of());
+        OrderDto dto = new OrderDto(1L, OrderStatus.NEW, orderIn.getCreationDate(), List.of(), null);
+
+        Page<Order> orderPage = new PageImpl<>(List.of(orderIn));
+        when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(orderPage);
+        when(orderMapper.map(orderIn)).thenReturn(dto);
+
+        doReturn(Map.of(5L, userDto)).when(orderService).fetchUsersByIds(List.of(5L));
+        doReturn(new OrderDto(1L, OrderStatus.NEW, orderIn.getCreationDate(), List.of(), userDto))
+                .when(orderService).enrichWithUser(dto, userDto);
+
+        Page<OrderDto> result = orderService.searchOrders(new OrderFilterDto(null, List.of(5L)), PageRequest.of(0, 10));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getContent().get(0).user().getEmail()).isEqualTo("darya@example.com");
+        assertThat(result.getContent().get(0).status()).isEqualTo(OrderStatus.NEW);
     }
 }
