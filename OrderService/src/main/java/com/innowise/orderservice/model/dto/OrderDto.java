@@ -2,6 +2,7 @@ package com.innowise.orderservice.model.dto;
 
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.userservice.UserDto;
+import jakarta.validation.constraints.NotNull;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -21,6 +22,7 @@ public record OrderDto(
         Long id,
         OrderStatus status,
         LocalDate creationDate,
+        @NotNull
         List<CreateOrderItemDto> items,
         UserDto user
 ) {

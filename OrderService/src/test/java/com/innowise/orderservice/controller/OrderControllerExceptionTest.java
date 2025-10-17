@@ -3,6 +3,8 @@ package com.innowise.orderservice.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.innowise.orderservice.exception.ApiErrorHandler;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
+import org.springframework.http.MediaType;
+import com.innowise.orderservice.model.dto.OrderDto;
 import com.innowise.orderservice.service.OrderService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,7 +14,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
@@ -69,4 +70,20 @@ class OrderControllerExceptionTest {
                 .andExpect(jsonPath("$.path").value("/api/v1/orders/1"));
     }
 
+    @Test
+    void shouldReturn400_whenValidationFails() throws Exception {
+
+        OrderDto invalidDto = new OrderDto(null,
+                null,
+                null,
+                null,
+                null);
+
+        mockMvc.perform(post("/api/v1/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidDto)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$[0].field").exists())
+                .andExpect(jsonPath("$[0].message").exists());
+    }
 }
