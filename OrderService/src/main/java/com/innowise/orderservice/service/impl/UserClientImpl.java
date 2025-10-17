@@ -5,6 +5,7 @@ import com.innowise.orderservice.exception.ResourceNotFoundException;
 import com.innowise.orderservice.model.dto.userservice.UserDto;
 import com.innowise.orderservice.model.dto.userservice.UserPageDto;
 import com.innowise.orderservice.service.UserClient;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,7 @@ public class UserClientImpl implements UserClient {
     private final JwtTokenProvider jwtTokenProvider;
     private final String userApiPath;
 
+    @Autowired
     public UserClientImpl(@Value("${user-service.url}") String userServiceUrl,
                           @Value("${user-service.path}") String userApiPath,
                           JwtTokenProvider jwtTokenProvider) {
@@ -39,6 +41,15 @@ public class UserClientImpl implements UserClient {
         this.userApiPath = userApiPath;
     }
 
+    public UserClientImpl(
+            WebClient webClient,
+            String userApiPath,
+            JwtTokenProvider jwtTokenProvider
+    ) {
+        this.webClient = webClient;
+        this.userApiPath = userApiPath;
+        this.jwtTokenProvider = jwtTokenProvider;
+    }
 
     public Mono<UserDto> getUserByEmail(String email) {
         String token = jwtTokenProvider.getCurrentToken();

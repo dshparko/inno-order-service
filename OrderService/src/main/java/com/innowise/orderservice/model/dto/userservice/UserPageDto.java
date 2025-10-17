@@ -1,5 +1,8 @@
 package com.innowise.orderservice.model.dto.userservice;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.List;
 
 /**
@@ -10,10 +13,8 @@ import java.util.List;
  * @Version 1.0
  */
 
+@Getter
+@Setter
 public class UserPageDto {
     private List<UserDto> content;
-
-    public List<UserDto> getContent() {
-        return content;
-    }
 }
