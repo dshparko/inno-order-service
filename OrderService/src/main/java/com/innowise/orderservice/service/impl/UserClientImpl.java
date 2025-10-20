@@ -41,7 +41,7 @@ public class UserClientImpl implements UserClient {
         this.userApiPath = userApiPath;
     }
 
-    public UserClientImpl(
+    UserClientImpl(
             WebClient webClient,
             String userApiPath,
             JwtTokenProvider jwtTokenProvider
