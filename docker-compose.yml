@@ -31,7 +31,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5434:5433"
+      - "5434:5432"
     volumes:
       - postgres_auth_data:/var/lib/postgresql/data
     healthcheck:
@@ -52,7 +52,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5435:5434"
+      - "5435:5432"
     volumes:
       - postgres_order_data:/var/lib/postgresql/data
     healthcheck:
@@ -108,7 +108,7 @@ services:
       - .env
     environment:
 
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5433/${POSTGRES_AUTH_DB}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/${POSTGRES_AUTH_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SERVER_PORT: 8084
@@ -130,7 +130,7 @@ services:
       - .env
     environment:
 
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-order:5434/${POSTGRES_ORDER_DB}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-order:5432/${POSTGRES_ORDER_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SERVER_PORT: 8085
