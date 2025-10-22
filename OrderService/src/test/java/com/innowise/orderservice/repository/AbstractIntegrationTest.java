@@ -1,31 +1,32 @@
 package com.innowise.orderservice.repository;
 
 
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
+import org.junit.jupiter.api.BeforeAll;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest
 @Testcontainers
+@DataJpaTest
+@ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
 
 
-    @Container
-    protected static final PostgreSQLContainer<?> POSTGRES_CONTAINER =
-            new PostgreSQLContainer<>("postgres:16-alpine")
-                    .withDatabaseName("orders")
-                    .withUsername("test")
-                    .withPassword("test");
+    @SuppressWarnings("resource")
+    private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
+            .withDatabaseName("orders")
+            .withUsername("test")
+            .withPassword("test");
 
-    @DynamicPropertySource
-    static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", POSTGRES_CONTAINER::getJdbcUrl);
-        registry.add("spring.datasource.username", POSTGRES_CONTAINER::getUsername);
-        registry.add("spring.datasource.password", POSTGRES_CONTAINER::getPassword);
-        registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
-        registry.add("spring.jpa.show-sql", () -> "true");
+    @BeforeAll
+    static void startContainer() {
+        postgres.start();
+        System.out.println("Active profile: " + System.getProperty("spring.profiles.active"));
+
+        System.setProperty("DB_URL", postgres.getJdbcUrl());
+        System.setProperty("DB_USERNAME", postgres.getUsername());
+        System.setProperty("DB_PASSWORD", postgres.getPassword());
+
     }
 }

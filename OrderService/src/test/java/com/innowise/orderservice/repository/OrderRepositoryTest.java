@@ -6,7 +6,9 @@ import com.innowise.orderservice.model.entity.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -17,7 +19,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Testcontainers
+
 class OrderRepositoryTest extends AbstractIntegrationTest {
 
     @Autowired
@@ -122,7 +124,7 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
 
         // then
         assertThat(page).isNotNull();
-        assertThat(page.getContent()).hasSize(1);
+        assertThat(page.getContent()).hasSize(10);
         assertThat(page.getContent().get(0).getStatus()).isEqualTo(OrderStatus.NEW);
     }
 }

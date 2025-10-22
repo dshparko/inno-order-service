@@ -3,13 +3,12 @@ package com.innowise.orderservice.repository;
 import com.innowise.orderservice.model.entity.Item;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Testcontainers
+
 class ItemRepositoryTest extends AbstractIntegrationTest {
 
     @Autowired

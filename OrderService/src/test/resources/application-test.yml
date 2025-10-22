@@ -1,3 +1,15 @@
 user-service:
   url: http://localhost:8089
   path: /api/v1/users
+spring:
+  hibernate:
+    hbm2ddl:
+      auto: create
+  datasource:
+    hikari:
+      max-lifetime: 1200000
+      connection-timeout: 20000
+      validation-timeout: 5000
+logging:
+  level:
+    root: DEBUG

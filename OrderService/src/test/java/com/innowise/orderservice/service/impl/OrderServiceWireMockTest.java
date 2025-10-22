@@ -1,6 +1,7 @@
 package com.innowise.orderservice.service.impl;
 
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.innowise.orderservice.OrderServiceApplication;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
 import com.innowise.orderservice.model.dto.OrderDto;
@@ -30,7 +31,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = {OrderServiceApplication.class}, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWireMock(port = 8089)
 @ActiveProfiles("test")
 class OrderServiceWireMockTest {
@@ -97,7 +98,7 @@ class OrderServiceWireMockTest {
 
     @Test
     void shouldGetOrderByIdWithMockedUser() {
-        Item item = itemRepository.save(new Item(101L, "Item A", BigDecimal.valueOf(15.0)));
+        Item item = itemRepository.save(new Item(null, "Item A", BigDecimal.valueOf(15.0)));
         OrderItem orderItem = new OrderItem();
         orderItem.setItem(item);
         orderItem.setQuantity(1);
@@ -121,7 +122,7 @@ class OrderServiceWireMockTest {
 
     @Test
     void shouldDeleteOrderSuccessfully() {
-        Item item = itemRepository.save(new Item(103L, "Item C", BigDecimal.valueOf(25.0)));
+        Item item = itemRepository.save(new Item(null, "Item C", BigDecimal.valueOf(25.0)));
         OrderItem orderItem = new OrderItem();
         orderItem.setItem(item);
         orderItem.setQuantity(1);
