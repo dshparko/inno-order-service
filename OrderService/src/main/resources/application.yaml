@@ -20,7 +20,7 @@ jwt:
   secret: ${JWT_SECRET}
 user-service:
   url: ${USER_SERVICE_URL}
-  path: /api/v1/users
+  path: ${USER_SERVICE_PATH}
 resilience4j:
   circuitbreaker:
     instances:
