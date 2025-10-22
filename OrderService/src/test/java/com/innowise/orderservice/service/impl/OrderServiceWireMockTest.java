@@ -20,6 +20,7 @@ import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -34,6 +35,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 @SpringBootTest(classes = {OrderServiceApplication.class}, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWireMock(port = 8089)
 @ActiveProfiles("test")
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class OrderServiceWireMockTest {
 
     @Autowired
@@ -49,6 +51,7 @@ class OrderServiceWireMockTest {
         Authentication auth = new UsernamePasswordAuthenticationToken("alice@example.com", "mocked-jwt-token");
         SecurityContextHolder.getContext().setAuthentication(auth);
     }
+
 
     @AfterEach
     void cleanup() {
@@ -81,7 +84,7 @@ class OrderServiceWireMockTest {
                             }
                         """)));
 
-        itemRepository.save(new Item(100L, "Test item", BigDecimal.valueOf(10.0)));
+        itemRepository.save(new Item(null, "Test item", BigDecimal.valueOf(10.0)));
     }
 
     @Test
@@ -99,6 +102,7 @@ class OrderServiceWireMockTest {
     @Test
     void shouldGetOrderByIdWithMockedUser() {
         Item item = itemRepository.save(new Item(null, "Item A", BigDecimal.valueOf(15.0)));
+
         OrderItem orderItem = new OrderItem();
         orderItem.setItem(item);
         orderItem.setQuantity(1);
@@ -108,6 +112,7 @@ class OrderServiceWireMockTest {
         order.setCreationDate(LocalDate.now());
         order.setUserId(1L);
         order.setItems(List.of(orderItem));
+
         orderItem.setOrder(order);
 
         Order saved = orderRepository.save(order);
@@ -123,6 +128,7 @@ class OrderServiceWireMockTest {
     @Test
     void shouldDeleteOrderSuccessfully() {
         Item item = itemRepository.save(new Item(null, "Item C", BigDecimal.valueOf(25.0)));
+
         OrderItem orderItem = new OrderItem();
         orderItem.setItem(item);
         orderItem.setQuantity(1);
@@ -131,8 +137,8 @@ class OrderServiceWireMockTest {
         order.setStatus(OrderStatus.NEW);
         order.setCreationDate(LocalDate.now());
         order.setUserId(1L);
-        order.setItems(List.of(orderItem));
         orderItem.setOrder(order);
+        order.setItems(List.of(orderItem));
 
         Order saved = orderRepository.save(order);
 
