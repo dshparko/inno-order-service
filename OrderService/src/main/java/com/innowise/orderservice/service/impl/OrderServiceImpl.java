@@ -4,6 +4,7 @@ import com.innowise.orderservice.config.JwtEmailExtractor;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.model.OrderStatus;
+import com.innowise.orderservice.model.dto.CreateOrderItemDto;
 import com.innowise.orderservice.model.dto.OrderDto;
 import com.innowise.orderservice.model.dto.OrderFilterDto;
 import com.innowise.orderservice.model.dto.userservice.UserDto;
@@ -21,12 +22,14 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * @ClassName OrderServiceImpl
@@ -45,47 +48,40 @@ public class OrderServiceImpl implements OrderService {
     private final JwtEmailExtractor jwtEmailExtractor;
 
     @Transactional
-    public OrderDto createOrder(OrderDto createDto) {
+    public Mono<OrderDto> createOrder(OrderDto createDto) {
         Order order = orderMapper.map(createDto);
         order.setCreationDate(LocalDate.now());
         order.setStatus(OrderStatus.NEW);
 
-        UserDto user = fetchUserByEmail();
-        order.setUserId(user.getId());
-
-        enrichItems(order.getItems(), order);
-
-        Order saved = orderRepository.save(order);
-        return enrichWithUser(orderMapper.map(saved), user);
+        return fetchUserByEmail()
+                .flatMap(user -> {
+                    order.setUserId(user.getId());
+                    enrichItems(order.getItems(), order);
+                    Order saved = orderRepository.save(order);
+                    return Mono.just(enrichWithUser(orderMapper.map(saved), user));
+                });
     }
 
     @Transactional(readOnly = true)
-    public OrderDto getOrderById(Long id) {
+    public Mono<OrderDto> getOrderById(Long id) {
         Order order = findOrderById(id);
-        UserDto user = fetchUserByEmail();
-        return enrichWithUser(orderMapper.map(order), user);
+        return fetchUserByEmail()
+                .map(user -> enrichWithUser(orderMapper.map(order), user));
     }
 
     @Transactional
-    public OrderDto updateOrder(Long id, OrderDto updatedDto) {
+    public Mono<OrderDto> updateOrder(Long id, OrderDto updatedDto) {
         Order existing = findOrderById(id);
+
+        validateStatusTransition(existing.getStatus(), updatedDto.status());
         existing.setStatus(updatedDto.status());
-        existing.getItems().clear();
 
-        List<OrderItem> updatedItems = updatedDto.items().stream().map(dtoItem -> {
-            OrderItem item = orderMapper.map(dtoItem);
-            item.setOrder(existing);
-            Long itemId = item.getItem().getId();
-            Item itemEntity = itemRepository.findById(itemId).orElseThrow(() -> new ResourceNotFoundException("Item not found: " + itemId));
-            item.setItem(itemEntity);
-            return item;
-        }).toList();
-
-        existing.getItems().addAll(updatedItems);
+        List<OrderItem> mergedItems = mergeOrderItems(existing, updatedDto.items());
+        existing.setItems(mergedItems);
 
         Order saved = orderRepository.save(existing);
-        UserDto user = fetchUserById(saved.getUserId());
-        return enrichWithUser(orderMapper.map(saved), user);
+        return fetchUserByEmail()
+                .map(user -> enrichWithUser(orderMapper.map(saved), user));
     }
 
     @Transactional
@@ -95,27 +91,54 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Transactional(readOnly = true)
-    public Page<OrderDto> searchOrders(OrderFilterDto filter, Pageable pageable) {
+    public Flux<Page<OrderDto>> searchOrders(OrderFilterDto filter, Pageable pageable) {
         Page<Order> orders = orderRepository.findAll(OrderSpecification.from(filter), pageable);
-
         List<Long> userIds = orders.stream()
                 .map(Order::getUserId)
                 .distinct()
                 .toList();
 
-        Map<Long, UserDto> userMap = fetchUsersByIds(userIds);
+        return fetchUsersByIds(userIds)
+                .map(userMap -> orders.map(order -> {
+                    OrderDto dto = orderMapper.map(order);
+                    UserDto user = userMap.get(order.getUserId());
+                    return enrichWithUser(dto, user);
+                }));
+    }
 
-        return orders.map(order -> {
-            OrderDto dto = orderMapper.map(order);
-            UserDto user = userMap.get(order.getUserId());
-            return enrichWithUser(dto, user);
-        });
+    private List<OrderItem> mergeOrderItems(Order existing, List<CreateOrderItemDto> incomingDtos) {
+        Map<Long, OrderItem> existingItemsByItemId = existing.getItems().stream()
+                .collect(Collectors.toMap(item -> item.getItem().getId(), Function.identity()));
+
+        return incomingDtos.stream().map(dtoItem -> {
+            Long itemId = dtoItem.getItemId();
+            Item itemEntity = itemRepository.findById(itemId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Item not found: " + itemId));
+
+            OrderItem existingItem = existingItemsByItemId.get(itemId);
+            if (existingItem != null) {
+                existingItem.setQuantity(dtoItem.getQuantity());
+                return existingItem;
+            } else {
+                OrderItem newItem = orderMapper.map(dtoItem);
+                newItem.setOrder(existing);
+                newItem.setItem(itemEntity);
+                return newItem;
+            }
+        }).toList();
     }
 
 
     private Order findOrderById(Long id) {
         return orderRepository.findByIdWithItems(id).
                 orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
+    }
+
+    private void validateStatusTransition(OrderStatus current, OrderStatus target) {
+        if (!current.canTransitionTo(target)) {
+            throw new IllegalStateException("Invalid status transition: " + current + " -> " + target);
+        }
+
     }
 
     private void enrichItems(List<OrderItem> items, Order order) {
@@ -128,24 +151,17 @@ public class OrderServiceImpl implements OrderService {
         });
     }
 
-    private UserDto fetchUserByEmail() {
+    public Mono<UserDto> fetchUserByEmail() {
         String email = jwtEmailExtractor.extractEmail();
-        return Optional.ofNullable(userClient.getUserByEmail(email).block())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found by email: " + email));
+        return userClient.getUserByEmail(email)
+                .switchIfEmpty(Mono.error(new ResourceNotFoundException("User not found by email: " + email)));
     }
 
-    private UserDto fetchUserById(Long userId) {
-        return Optional.ofNullable(userClient.getUserById(userId).block())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found by ID: " + userId));
-    }
-
-    Map<Long, UserDto> fetchUsersByIds(List<Long> userIds) {
-        return Optional.ofNullable(
-                userClient.getUsersByIds(userIds)
-                        .flatMap(page -> Flux.fromIterable(page.getContent()))
-                        .collectMap(UserDto::getId)
-                        .block()
-        ).orElseGet(Collections::emptyMap);
+    public Flux<Map<Long, UserDto>> fetchUsersByIds(List<Long> userIds) {
+        return userClient.getUsersByIds(userIds)
+                .flatMap(page -> Flux.fromIterable(page.getContent())
+                        .collectMap(UserDto::getId))
+                .defaultIfEmpty(Collections.emptyMap());
     }
 
     OrderDto enrichWithUser(OrderDto dto, UserDto user) {

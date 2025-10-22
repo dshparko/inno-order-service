@@ -17,9 +17,6 @@ import java.util.Optional;
 public interface ItemRepository extends JpaRepository<Item, Long> {
     /**
      * Retrieves an {@link Item} entity by its unique identifier.
-     * <p>
-     * This method is redundant as {@link JpaRepository} already provides it,
-     * but it can be overridden for custom behavior if needed.
      *
      * @param id the unique identifier of the item
      * @return an {@link Optional} containing the item if found, or empty if not

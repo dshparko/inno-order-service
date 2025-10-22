@@ -4,6 +4,7 @@ import com.innowise.orderservice.model.entity.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -58,5 +59,6 @@ public interface OrderRepository extends JpaRepository<Order, Long>, JpaSpecific
      * @param pageable pagination and sorting information
      * @return a page of matching orders
      */
+    @EntityGraph(attributePaths = {"items", "items.item"})
     Page<Order> findAll(Specification<Order> from, Pageable pageable);
 }

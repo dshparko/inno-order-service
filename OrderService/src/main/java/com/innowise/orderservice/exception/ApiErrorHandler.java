@@ -59,7 +59,7 @@ public class ApiErrorHandler {
     public ResponseEntity<ErrorResponseDto> handleNotFound(ResourceNotFoundException ex,
                                                            HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(buildErrorResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request.getRequestURI()));
+                .body(buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request.getRequestURI()));
     }
 
     @ExceptionHandler(HttpMessageConversionException.class)

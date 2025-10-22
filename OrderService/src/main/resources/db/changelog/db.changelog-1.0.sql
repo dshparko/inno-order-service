@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS orders
 (
     id            BIGSERIAL PRIMARY KEY,
-    user_id       BIGSERIAL,
+    user_id       BIGINT,
     status        VARCHAR(32) NOT NULL,
     creation_date DATE        NOT NULL DEFAULT now()
 );

@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 
 /**
@@ -39,35 +41,33 @@ public class OrderController {
 
     private final OrderService orderService;
 
-    @PreAuthorize(value = "hasRole('USER') or hasRole('ADMIN')")
+    @PreAuthorize(value = "hasAnyRole('USER','ADMIN')")
     @PostMapping
-    public ResponseEntity<OrderDto> createOrder(@RequestBody @Valid OrderDto order) {
-        OrderDto created = orderService.createOrder(order);
+    public ResponseEntity<Mono<OrderDto>> createOrder(@RequestBody @Valid OrderDto order) {
+        Mono<OrderDto> created = orderService.createOrder(order);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PreAuthorize(value = "hasRole('USER') or hasRole('ADMIN')")
+    @PreAuthorize(value = "hasAnyRole('USER','ADMIN')")
     @GetMapping("/{id}")
-    public ResponseEntity<OrderDto> getOrderById(@PathVariable Long id) {
-        OrderDto order = orderService.getOrderById(id);
+    public ResponseEntity<Mono<OrderDto>> getOrderById(@PathVariable Long id) {
+        Mono<OrderDto> order = orderService.getOrderById(id);
         return ResponseEntity.ok(order);
     }
 
     @PreAuthorize(value = "hasRole('ADMIN')")
     @GetMapping
-    public ResponseEntity<Page<OrderDto>> search(OrderFilterDto filter,
-                                                 @PageableDefault Pageable pageable) {
-        Page<OrderDto> page = orderService.searchOrders(filter, pageable);
+    public ResponseEntity<Flux<Page<OrderDto>>> search(OrderFilterDto filter,
+                                                       @PageableDefault Pageable pageable) {
+        Flux<Page<OrderDto> >page = orderService.searchOrders(filter, pageable);
 
-        return page.hasContent()
-                ? ResponseEntity.ok(page)
-                : ResponseEntity.noContent().build();
+        return ResponseEntity.ok(page);
     }
 
     @PreAuthorize(value = "hasRole('ADMIN')")
     @PutMapping("/{id}")
-    public ResponseEntity<OrderDto> updateOrder(@PathVariable Long id, @RequestBody @Valid OrderDto updated) {
-        OrderDto order = orderService.updateOrder(id, updated);
+    public ResponseEntity<Mono<OrderDto>> updateOrder(@PathVariable Long id, @RequestBody @Valid OrderDto updated) {
+        Mono<OrderDto> order = orderService.updateOrder(id, updated);
         return ResponseEntity.ok(order);
     }
 

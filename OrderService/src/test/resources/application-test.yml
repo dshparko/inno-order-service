@@ -1,0 +1,3 @@
+user-service:
+  url: http://localhost:8089
+  path: /api/v1/users

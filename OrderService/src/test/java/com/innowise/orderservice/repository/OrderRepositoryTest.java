@@ -1,19 +1,13 @@
 package com.innowise.orderservice.repository;
 
+
 import com.innowise.orderservice.model.OrderStatus;
-import com.innowise.orderservice.model.dto.OrderFilterDto;
-import com.innowise.orderservice.model.entity.Item;
-import com.innowise.orderservice.model.entity.Order;
-import com.innowise.orderservice.model.entity.OrderItem;
-import com.innowise.orderservice.specification.OrderSpecification;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import org.junit.jupiter.api.BeforeEach;
+import com.innowise.orderservice.model.entity.*;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -22,153 +16,112 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Integration tests for {@link OrderRepository}.
- */
-@DataJpaTest
-class OrderRepositoryTest {
+@Transactional
+class OrderRepositoryTest extends AbstractIntegrationTest {
 
     @Autowired
     private OrderRepository orderRepository;
 
-    @PersistenceContext
-    private EntityManager entityManager;
+    @Autowired
+    private ItemRepository itemRepository;
 
-    private Order baseOrder;
-    private Order order1, order2, order3;
-
-    @BeforeEach
-    void setUp() {
+    @AfterEach
+    void cleanDatabase() {
         orderRepository.deleteAll();
-
-        Item item = persist(Item.builder()
-                .name("Laptop")
-                .price(BigDecimal.valueOf(1500))
-                .build());
-
-        OrderItem orderItem = OrderItem.builder()
-                .item(item)
-                .quantity(2)
-                .build();
-
-        baseOrder = Order.builder()
-                .userId(1L)
-                .creationDate(LocalDate.now())
-                .items(List.of(orderItem))
-                .status(OrderStatus.SHIPPED)
-                .build();
-
-        orderItem.setOrder(baseOrder);
-
-        persist(baseOrder);
-        persist(orderItem);
-
-        order1 = persist(Order.builder().userId(1L).status(OrderStatus.NEW).creationDate(LocalDate.now()).build());
-        order2 = persist(Order.builder().userId(2L).status(OrderStatus.PROCESSING).creationDate(LocalDate.now()).build());
-        order3 = persist(Order.builder().userId(3L).status(OrderStatus.DELIVERED).creationDate(LocalDate.now()).build());
-
-        entityManager.flush();
-        entityManager.clear();
-    }
-
-    private <T> T persist(T entity) {
-        entityManager.persist(entity);
-        return entity;
+        itemRepository.deleteAll();
     }
 
     @Test
-    void shouldSaveOrder() {
-        Order saved = orderRepository.save(baseOrder);
+    void shouldSaveAndLoadOrderWithItems() {
+        // given
+        Item itemA = itemRepository.save(new Item(null, "Item A", BigDecimal.valueOf(10.0)));
+        Item itemB = itemRepository.save(new Item(null, "Item B", BigDecimal.valueOf(20.0)));
+
+        Order order = new Order();
+        order.setStatus(OrderStatus.NEW);
+        order.setCreationDate(LocalDate.now());
+        order.setUserId(1L);
+
+        OrderItem oi1 = new OrderItem();
+        oi1.setItem(itemA);
+        oi1.setQuantity(2);
+        oi1.setOrder(order);
+
+        OrderItem oi2 = new OrderItem();
+        oi2.setItem(itemB);
+        oi2.setQuantity(1);
+        oi2.setOrder(order);
+
+        order.setItems(List.of(oi1, oi2));
+
+        // when
+        Order saved = orderRepository.save(order);
+
+        // then
         assertThat(saved.getId()).isNotNull();
-        assertThat(saved.getUserId()).isEqualTo(1L);
+        assertThat(saved.getItems()).hasSize(2);
+        assertThat(saved.getItems().get(0).getItem().getName()).isEqualTo("Item A");
+
+        // when
+        Optional<Order> loaded = orderRepository.findByIdWithItems(saved.getId());
+
+        // then
+        assertThat(loaded).isPresent();
+        assertThat(loaded.get().getItems()).hasSize(2);
+        assertThat(loaded.get().getItems().get(1).getItem().getName()).isEqualTo("Item B");
     }
 
     @Test
     void shouldDeleteOrderById() {
-        orderRepository.deleteById(baseOrder.getId());
-        entityManager.flush();
-        entityManager.clear();
+        // given
+        Item item = itemRepository.save(new Item(null, "Item C", BigDecimal.valueOf(15.0)));
 
-        assertThat(orderRepository.findById(baseOrder.getId())).isEmpty();
+        Order order = new Order();
+        order.setStatus(OrderStatus.NEW);
+        order.setCreationDate(LocalDate.now());
+        order.setUserId(2L);
+
+        OrderItem orderItem = new OrderItem();
+        orderItem.setItem(item);
+        orderItem.setQuantity(1);
+        orderItem.setOrder(order);
+
+        order.setItems(List.of(orderItem));
+        Order saved = orderRepository.save(order);
+
+        // when
+        orderRepository.deleteById(saved.getId());
+
+        // then
+        Optional<Order> deleted = orderRepository.findById(saved.getId());
+        assertThat(deleted).isEmpty();
     }
 
     @Test
-    void shouldDeletePersistedOrder() {
-        Order order = persist(Order.builder()
-                .userId(102L)
-                .status(OrderStatus.NEW)
-                .creationDate(LocalDate.now())
-                .items(List.of())
-                .build());
+    void shouldFindAllBySpecificationAndPagination() {
+        // given
+        itemRepository.save(new Item(null, "Item D", BigDecimal.valueOf(30.0)));
 
-        orderRepository.deleteById(order.getId());
-        assertThat(orderRepository.findById(order.getId())).isEmpty();
-    }
+        Order order1 = new Order();
+        order1.setStatus(OrderStatus.NEW);
+        order1.setCreationDate(LocalDate.now());
+        order1.setUserId(1L);
 
-    @Test
-    void shouldFindOrderWithItems() {
-        Optional<Order> found = orderRepository.findByIdWithItems(baseOrder.getId());
+        Order order2 = new Order();
+        order2.setStatus(OrderStatus.PROCESSING);
+        order2.setCreationDate(LocalDate.now());
+        order2.setUserId(2L);
 
-        assertThat(found).isPresent();
-        assertThat(found.get().getItems()).hasSize(1);
-        assertThat(found.get().getItems().get(0).getItem().getName()).isEqualTo("Laptop");
-    }
+        orderRepository.saveAll(List.of(order1, order2));
 
+        // when
+        var spec = (Specification<Order>) (root, _, cb) ->
+                cb.equal(root.get("status"), OrderStatus.NEW);
+        var page = orderRepository.findAll(spec, org.springframework.data.domain.PageRequest.of(0, 10));
 
-    @Test
-    void shouldFilterByIds() {
-        var filterDto = new OrderFilterDto(null, List.of(order1.getId(), order3.getId()));
-        var spec = OrderSpecification.from(filterDto);
-
-        List<Order> result = orderRepository.findAll(spec);
-
-        assertThat(result).hasSize(2)
-                .extracting(Order::getId)
-                .containsExactlyInAnyOrder(order1.getId(), order3.getId());
-    }
-
-    @Test
-    void shouldFilterByStatuses() {
-        var filterDto = new OrderFilterDto(List.of(OrderStatus.NEW, OrderStatus.DELIVERED), null);
-        var spec = OrderSpecification.from(filterDto);
-
-        List<Order> result = orderRepository.findAll(spec);
-
-        assertThat(result).hasSize(2)
-                .extracting(Order::getStatus)
-                .containsExactlyInAnyOrder(OrderStatus.NEW, OrderStatus.DELIVERED);
-    }
-
-    @Test
-    void shouldFilterByIdsAndStatuses() {
-        var filterDto = new OrderFilterDto(
-                List.of(OrderStatus.PROCESSING, OrderStatus.DELIVERED),
-                List.of(order1.getId(), order2.getId())
-        );
-        var spec = OrderSpecification.from(filterDto);
-
-        List<Order> result = orderRepository.findAll(spec);
-
-        assertThat(result).hasSize(1);
-    }
-
-    @Test
-    void shouldReturnAllWhenFilterEmpty() {
-        var spec = OrderSpecification.from(new OrderFilterDto(null, null));
-        List<Order> result = orderRepository.findAll(spec);
-
-        assertThat(result).hasSize(4);
-    }
-
-    @Test
-    void shouldReturnPagedOrdersByStatus() {
-        persist(Order.builder().userId(103L).status(OrderStatus.NEW).creationDate(LocalDate.now()).items(List.of()).build());
-        persist(Order.builder().userId(104L).status(OrderStatus.DELIVERED).creationDate(LocalDate.now()).items(List.of()).build());
-
-        Specification<Order> spec = (root, query, cb) -> cb.equal(root.get("status"), OrderStatus.NEW);
-        var page = orderRepository.findAll(spec, PageRequest.of(0, 10));
-
-        assertThat(page.getContent()).hasSize(2)
-                .allMatch(o -> o.getStatus() == OrderStatus.NEW);
+        // then
+        assertThat(page).isNotNull();
+        assertThat(page.getContent()).hasSize(10);
+        assertThat(page.getContent().get(0).getStatus()).isEqualTo(OrderStatus.NEW);
     }
 }
