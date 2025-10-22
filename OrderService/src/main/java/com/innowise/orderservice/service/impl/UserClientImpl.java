@@ -5,6 +5,7 @@ import com.innowise.orderservice.exception.ResourceNotFoundException;
 import com.innowise.orderservice.model.dto.userservice.UserDto;
 import com.innowise.orderservice.model.dto.userservice.UserPageDto;
 import com.innowise.orderservice.service.UserClient;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatusCode;
@@ -51,6 +52,7 @@ public class UserClientImpl implements UserClient {
         this.jwtTokenProvider = jwtTokenProvider;
     }
 
+    @CircuitBreaker(name = "user-service", fallbackMethod = "fallbackGetUser")
     public Mono<UserDto> getUserByEmail(String email) {
         String token = jwtTokenProvider.getCurrentToken();
 
@@ -68,6 +70,7 @@ public class UserClientImpl implements UserClient {
                         .orElseGet(() -> Mono.error(new ResourceNotFoundException("User not found"))));
     }
 
+    @CircuitBreaker(name = "user-service", fallbackMethod = "fallbackGetUser")
     public Mono<UserDto> getUserById(Long id) {
         return webClient.get()
                 .uri(userApiPath + "{id}", id)
@@ -80,6 +83,7 @@ public class UserClientImpl implements UserClient {
                 .bodyToMono(UserDto.class);
     }
 
+    @CircuitBreaker(name = "user-service", fallbackMethod = "fallbackGetUsers")
     public Flux<UserPageDto> getUsersByIds(List<Long> ids) {
         String token = jwtTokenProvider.getCurrentToken();
 
@@ -92,6 +96,17 @@ public class UserClientImpl implements UserClient {
                 .headers(headers -> headers.setBearerAuth(token))
                 .retrieve()
                 .bodyToFlux(UserPageDto.class);
+    }
+
+    public Mono<UserDto> fallbackGetUser(Throwable throwable) {
+        return Mono.error(new ResourceNotFoundException("User service unavailable. Reason: " + throwable.getMessage()));
+    }
+
+    public Flux<UserPageDto> fallbackGetUsers(List<Long> ids, Throwable throwable) {
+        return Flux.error(new ResourceNotFoundException(
+                "User service is unavailable. Failed to fetch users by IDs: " + ids +
+                        ". Reason: " + throwable.getMessage()
+        ));
     }
 
 }
