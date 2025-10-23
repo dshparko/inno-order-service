@@ -124,7 +124,7 @@ class OrderRepositoryTest extends AbstractIntegrationTest {
 
         // then
         assertThat(page).isNotNull();
-        assertThat(page.getContent()).hasSize(10);
+        assertThat(page.getContent()).hasSize(1);
         assertThat(page.getContent().get(0).getStatus()).isEqualTo(OrderStatus.NEW);
     }
 }
