@@ -28,14 +28,14 @@ class UserClientImplTest {
     @InjectMocks
     private UserClientImpl userClient;
 
-    private final String BASE_URL = "http://localhost:8083";
-    private final String API_PATH = "/api/v1/users";
+    private final String baseUrl = "http://localhost:8083";
+    private final String apiPath = "/api/v1/users";
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        userClient = new UserClientImpl(jwtTokenProvider, BASE_URL, API_PATH);
+        userClient = new UserClientImpl(jwtTokenProvider, baseUrl, apiPath);
 
         try {
             var field = UserClientImpl.class.getDeclaredField("restTemplate");
@@ -89,7 +89,7 @@ class UserClientImplTest {
         user.setId(userId);
         user.setEmail("user42@example.com");
 
-        String expectedUrl = BASE_URL + API_PATH + "/" + userId;
+        String expectedUrl = baseUrl + apiPath + "/" + userId;
 
         when(restTemplate.getForObject(expectedUrl, UserDto.class)).thenReturn(user);
 
@@ -104,7 +104,7 @@ class UserClientImplTest {
     @Test
     void testGetUserById_NotFound() {
         Long userId = 999L;
-        String expectedUrl = BASE_URL + API_PATH + "/" + userId;
+        String expectedUrl = baseUrl + apiPath + "/" + userId;
 
         when(restTemplate.getForObject(expectedUrl, UserDto.class)).thenThrow(new RuntimeException("404"));
 
@@ -124,7 +124,7 @@ class UserClientImplTest {
 
         ResponseEntity<UserPageDto> response = new ResponseEntity<>(page, HttpStatus.OK);
 
-        String expectedUrl = BASE_URL + API_PATH + "?ids=1&ids=2";
+        String expectedUrl = baseUrl + apiPath + "?ids=1&ids=2";
 
         when(restTemplate.exchange(eq(expectedUrl), eq(HttpMethod.GET), any(HttpEntity.class), eq(UserPageDto.class)))
                 .thenReturn(response);
@@ -146,7 +146,7 @@ class UserClientImplTest {
 
         ResponseEntity<UserPageDto> response = new ResponseEntity<>(page, HttpStatus.OK);
 
-        String expectedUrl = BASE_URL + API_PATH + "?ids=1";
+        String expectedUrl = baseUrl + apiPath + "?ids=1";
 
         when(restTemplate.exchange(eq(expectedUrl), eq(HttpMethod.GET), any(HttpEntity.class), eq(UserPageDto.class)))
                 .thenReturn(response);
