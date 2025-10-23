@@ -96,7 +96,8 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+          mvn -B verify -Dspring.profiles.active=test
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
           -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
           -Dsonar.host.url=${{ secrets.SONAR_HOST_URL }} \
           -Dsonar.login=${{ secrets.SONAR_TOKEN }} \
