@@ -19,3 +19,5 @@ logging:
 user-service:
   url: http://localhost:8083
   path: /api/v1/users
+jwt:
+  secret: ${JWT_SECRET}
