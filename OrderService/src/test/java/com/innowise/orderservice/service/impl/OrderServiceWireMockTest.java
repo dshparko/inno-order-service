@@ -58,6 +58,7 @@ class OrderServiceWireMockTest {
         registry.add("spring.datasource.password", postgres::getPassword);
         registry.add("user-service.url", () -> "http://localhost:" + wiremock.getPort());
         registry.add("user-service.path", () -> "/api/v1/users");
+        registry.add("jwt.secret", () -> "test-secret");
     }
 
     @MockitoBean
