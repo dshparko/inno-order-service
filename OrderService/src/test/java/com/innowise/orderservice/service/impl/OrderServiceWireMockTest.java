@@ -31,27 +31,17 @@ import java.util.Optional;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-@Disabled("Fails in CI due to context loading issue")
+
 @Testcontainers
 @SpringBootTest(classes = OrderServiceApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OrderServiceWireMockTest {
-    @SuppressWarnings("resource")
     private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
             .withDatabaseName("orders")
             .withUsername("test")
             .withPassword("test");
-
-    @BeforeAll
-    static void startContainer() {
-        postgres.start();
-        System.setProperty("DB_URL", postgres.getJdbcUrl());
-        System.setProperty("DB_USERNAME", postgres.getUsername());
-        System.setProperty("DB_PASSWORD", postgres.getPassword());
-
-    }
 
     private static WireMockServer wiremock;
 
@@ -63,37 +53,26 @@ class OrderServiceWireMockTest {
 
     @Autowired
     private OrderRepository orderRepository;
+
     private Long testItemId;
 
     @DynamicPropertySource
     static void overrideProps(DynamicPropertyRegistry registry) {
-        registry.add("user-service.url", () -> "http://localhost:8089");
-        registry.add("user-service.path", () -> "/api/v1/users");
-    }
-
-    @BeforeAll
-    static void startWireMock() {
-        wiremock = new WireMockServer(wireMockConfig().port(8089));
+        postgres.start();
+        wiremock = new WireMockServer(wireMockConfig().dynamicPort());
         wiremock.start();
-        configureFor("localhost", 8089);
-    }
 
-    @AfterAll
-    static void stopWireMock() {
-        if (wiremock != null) {
-            wiremock.stop();
-        }
-    }
-
-    @BeforeEach
-    void setupSecurityContext() {
-        Authentication auth =
-                new UsernamePasswordAuthenticationToken("alice@example.com", "mocked-jwt-token");
-        SecurityContextHolder.getContext().setAuthentication(auth);
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+        registry.add("user-service.url", () -> "http://localhost:" + wiremock.port());
+        registry.add("user-service.path", () -> "/api/v1/users");
     }
 
     @BeforeEach
     void setup() {
+        configureFor("localhost", wiremock.port());
+
         wiremock.stubFor(get(urlPathEqualTo("/api/v1/users"))
                 .withQueryParam("email", equalTo("alice@example.com"))
                 .willReturn(okJson("""
@@ -109,6 +88,10 @@ class OrderServiceWireMockTest {
                         }
                         """)));
 
+        Authentication auth =
+                new UsernamePasswordAuthenticationToken("alice@example.com", "mocked-jwt-token");
+        SecurityContextHolder.getContext().setAuthentication(auth);
+
         Item item = itemRepository.save(new Item(null, "Test item", BigDecimal.valueOf(10.0)));
         testItemId = item.getId();
     }
@@ -119,6 +102,12 @@ class OrderServiceWireMockTest {
         itemRepository.deleteAll();
         wiremock.resetAll();
         SecurityContextHolder.clearContext();
+    }
+
+    @AfterAll
+    static void tearDown() {
+        if (wiremock != null) wiremock.stop();
+        if (postgres != null) postgres.stop();
     }
 
     @Test
