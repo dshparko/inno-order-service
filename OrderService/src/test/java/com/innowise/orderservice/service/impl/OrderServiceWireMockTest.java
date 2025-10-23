@@ -1,7 +1,6 @@
 package com.innowise.orderservice.service.impl;
 
-import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import com.github.tomakehurst.wiremock.WireMockServer;
 import com.innowise.orderservice.OrderServiceApplication;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
@@ -13,7 +12,6 @@ import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import com.innowise.orderservice.service.OrderService;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -29,19 +27,16 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-@SpringBootTest(
-        classes = OrderServiceApplication.class,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
-)
+@SpringBootTest(classes = OrderServiceApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OrderServiceWireMockTest {
 
-    @RegisterExtension
-    static WireMockExtension wiremock = WireMockExtension.newInstance()
-            .options(WireMockConfiguration.wireMockConfig().dynamicPort())
-            .build();
+    private WireMockServer wiremock;
 
     @Autowired
     private OrderService orderService;
@@ -51,19 +46,30 @@ class OrderServiceWireMockTest {
 
     @Autowired
     private OrderRepository orderRepository;
-
     private Long testItemId;
 
     @DynamicPropertySource
-    static void registerProperties(DynamicPropertyRegistry registry) {
-        registry.add("user-service.url", () -> "http://localhost:" + wiremock.getPort());
+    static void overrideProps(DynamicPropertyRegistry registry) {
+        registry.add("user-service.url", () -> "http://localhost:8089");
         registry.add("user-service.path", () -> "/api/v1/users");
+    }
+
+    @BeforeAll
+    void startWireMock() {
+        wiremock = new WireMockServer(wireMockConfig().port(8089));
+        wiremock.start();
+        configureFor("localhost", 8089);
+    }
+
+    @AfterAll
+    void stopWireMock() {
+        wiremock.stop();
     }
 
     @BeforeEach
     void setupSecurityContext() {
-        Authentication auth = new UsernamePasswordAuthenticationToken(
-                "alice@example.com", "mocked-jwt-token");
+        Authentication auth =
+                new UsernamePasswordAuthenticationToken("alice@example.com", "mocked-jwt-token");
         SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
