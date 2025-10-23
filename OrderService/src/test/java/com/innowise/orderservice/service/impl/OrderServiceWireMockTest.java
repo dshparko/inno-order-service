@@ -1,6 +1,7 @@
 package com.innowise.orderservice.service.impl;
 
-import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import com.innowise.orderservice.OrderServiceApplication;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
@@ -11,16 +12,13 @@ import com.innowise.orderservice.model.entity.OrderItem;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import com.innowise.orderservice.service.OrderService;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.cloud.contract.wiremock.AutoConfigureWireMock;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -30,63 +28,72 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-@SpringBootTest(classes = OrderServiceApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureWireMock(port = 8089)
+@SpringBootTest(
+        classes = OrderServiceApplication.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
+)
 @ActiveProfiles("test")
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class OrderServiceWireMockTest {
+
+    @RegisterExtension
+    static WireMockExtension wiremock = WireMockExtension.newInstance()
+            .options(WireMockConfiguration.wireMockConfig().dynamicPort())
+            .build();
 
     @Autowired
     private OrderService orderService;
 
     @Autowired
     private ItemRepository itemRepository;
+
     @Autowired
     private OrderRepository orderRepository;
+
     private Long testItemId;
+
+    @DynamicPropertySource
+    static void registerProperties(DynamicPropertyRegistry registry) {
+        registry.add("user-service.url", () -> "http://localhost:" + wiremock.getPort());
+        registry.add("user-service.path", () -> "/api/v1/users");
+    }
 
     @BeforeEach
     void setupSecurityContext() {
-        Authentication auth = new UsernamePasswordAuthenticationToken("alice@example.com", "mocked-jwt-token");
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "alice@example.com", "mocked-jwt-token");
         SecurityContextHolder.getContext().setAuthentication(auth);
     }
 
+    @BeforeEach
+    void setup() {
+        wiremock.stubFor(get(urlPathEqualTo("/api/v1/users"))
+                .withQueryParam("email", equalTo("alice@example.com"))
+                .willReturn(okJson("""
+                        {
+                          "content": [
+                            {
+                              "id": 1,
+                              "email": "alice@example.com",
+                              "firstName": "Darya",
+                              "lastName": "Shparko"
+                            }
+                          ]
+                        }
+                        """)));
+
+        Item item = itemRepository.save(new Item(null, "Test item", BigDecimal.valueOf(10.0)));
+        testItemId = item.getId();
+    }
 
     @AfterEach
     void cleanup() {
         orderRepository.deleteAll();
         itemRepository.deleteAll();
-    }
-
-
-    @DynamicPropertySource
-    static void overrideProps(DynamicPropertyRegistry registry) {
-        registry.add("user-service.url", () -> "http://localhost:8089");
-        registry.add("user-service.path", () -> "/api/v1/users");
-    }
-
-    @BeforeEach
-    void setup() {
-        WireMock.configureFor("localhost", 8089);
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/api/v1/users"))
-                .withQueryParam("email", WireMock.equalTo("alice@example.com"))
-                .willReturn(WireMock.okJson("""
-                            {
-                              "content": [
-                                {
-                                  "id": 1,
-                                  "email": "alice@example.com",
-                                  "firstName": "Darya",
-                                  "lastName": "Shparko"
-                                }
-                              ]
-                            }
-                        """)));
-
-        Item item = itemRepository.save(new Item(null, "Test item", BigDecimal.valueOf(10.0)));
-        testItemId = item.getId();
+        wiremock.resetAll();
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -114,7 +121,6 @@ class OrderServiceWireMockTest {
         order.setCreationDate(LocalDate.now());
         order.setUserId(1L);
         order.setItems(List.of(orderItem));
-
         orderItem.setOrder(order);
 
         Order saved = orderRepository.save(order);
@@ -125,7 +131,6 @@ class OrderServiceWireMockTest {
         assertThat(result.id()).isEqualTo(saved.getId());
         assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
     }
-
 
     @Test
     void shouldDeleteOrderSuccessfully() {
@@ -149,6 +154,4 @@ class OrderServiceWireMockTest {
         Optional<Order> deleted = orderRepository.findById(saved.getId());
         assertThat(deleted).isEmpty();
     }
-
-
 }
