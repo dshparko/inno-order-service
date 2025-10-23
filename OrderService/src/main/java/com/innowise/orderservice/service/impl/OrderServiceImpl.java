@@ -20,14 +20,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+
 import org.springframework.transaction.annotation.Transactional;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -41,6 +40,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
+
     private final OrderRepository orderRepository;
     private final ItemRepository itemRepository;
     private final OrderMapper orderMapper;
@@ -48,29 +48,29 @@ public class OrderServiceImpl implements OrderService {
     private final JwtEmailExtractor jwtEmailExtractor;
 
     @Transactional
-    public Mono<OrderDto> createOrder(OrderDto createDto) {
+    public OrderDto createOrder(OrderDto createDto) {
         Order order = orderMapper.map(createDto);
         order.setCreationDate(LocalDate.now());
         order.setStatus(OrderStatus.NEW);
 
-        return fetchUserByEmail()
-                .flatMap(user -> {
-                    order.setUserId(user.getId());
-                    enrichItems(order.getItems(), order);
-                    Order saved = orderRepository.save(order);
-                    return Mono.just(enrichWithUser(orderMapper.map(saved), user));
-                });
+        UserDto user = fetchUserByEmail();
+        order.setUserId(user.getId());
+
+        enrichItems(order.getItems(), order);
+        Order saved = orderRepository.save(order);
+
+        return enrichWithUser(orderMapper.map(saved), user);
     }
 
     @Transactional(readOnly = true)
-    public Mono<OrderDto> getOrderById(Long id) {
+    public OrderDto getOrderById(Long id) {
         Order order = findOrderById(id);
-        return fetchUserByEmail()
-                .map(user -> enrichWithUser(orderMapper.map(order), user));
+        UserDto user = fetchUserByEmail();
+        return enrichWithUser(orderMapper.map(order), user);
     }
 
     @Transactional
-    public Mono<OrderDto> updateOrder(Long id, OrderDto updatedDto) {
+    public OrderDto updateOrder(Long id, OrderDto updatedDto) {
         Order existing = findOrderById(id);
 
         validateStatusTransition(existing.getStatus(), updatedDto.status());
@@ -80,8 +80,9 @@ public class OrderServiceImpl implements OrderService {
         existing.setItems(mergedItems);
 
         Order saved = orderRepository.save(existing);
-        return fetchUserByEmail()
-                .map(user -> enrichWithUser(orderMapper.map(saved), user));
+        UserDto user = fetchUserByEmail();
+
+        return enrichWithUser(orderMapper.map(saved), user);
     }
 
     @Transactional
@@ -91,19 +92,20 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Transactional(readOnly = true)
-    public Flux<Page<OrderDto>> searchOrders(OrderFilterDto filter, Pageable pageable) {
+    public Page<OrderDto> searchOrders(OrderFilterDto filter, Pageable pageable) {
         Page<Order> orders = orderRepository.findAll(OrderSpecification.from(filter), pageable);
         List<Long> userIds = orders.stream()
                 .map(Order::getUserId)
                 .distinct()
                 .toList();
 
-        return fetchUsersByIds(userIds)
-                .map(userMap -> orders.map(order -> {
-                    OrderDto dto = orderMapper.map(order);
-                    UserDto user = userMap.get(order.getUserId());
-                    return enrichWithUser(dto, user);
-                }));
+        Map<Long, UserDto> userMap = fetchUsersByIds(userIds);
+
+        return orders.map(order -> {
+            OrderDto dto = orderMapper.map(order);
+            UserDto user = userMap.get(order.getUserId());
+            return enrichWithUser(dto, user);
+        });
     }
 
     private List<OrderItem> mergeOrderItems(Order existing, List<CreateOrderItemDto> incomingDtos) {
@@ -128,17 +130,15 @@ public class OrderServiceImpl implements OrderService {
         }).toList();
     }
 
-
     private Order findOrderById(Long id) {
-        return orderRepository.findByIdWithItems(id).
-                orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
+        return orderRepository.findByIdWithItems(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
     }
 
     private void validateStatusTransition(OrderStatus current, OrderStatus target) {
         if (!current.canTransitionTo(target)) {
             throw new IllegalStateException("Invalid status transition: " + current + " -> " + target);
         }
-
     }
 
     private void enrichItems(List<OrderItem> items, Order order) {
@@ -151,21 +151,18 @@ public class OrderServiceImpl implements OrderService {
         });
     }
 
-    public Mono<UserDto> fetchUserByEmail() {
+    private UserDto fetchUserByEmail() {
         String email = jwtEmailExtractor.extractEmail();
-        return userClient.getUserByEmail(email)
-                .switchIfEmpty(Mono.error(new ResourceNotFoundException("User not found by email: " + email)));
+        return Optional.ofNullable(userClient.getUserByEmail(email))
+                .orElseThrow(() -> new ResourceNotFoundException("User not found by email: " + email));
     }
 
-    public Flux<Map<Long, UserDto>> fetchUsersByIds(List<Long> userIds) {
-        return userClient.getUsersByIds(userIds)
-                .flatMap(page -> Flux.fromIterable(page.getContent())
-                        .collectMap(UserDto::getId))
-                .defaultIfEmpty(Collections.emptyMap());
+    private Map<Long, UserDto> fetchUsersByIds(List<Long> userIds) {
+        List<UserDto> users = userClient.getUsersByIds(userIds);
+        return users.stream().collect(Collectors.toMap(UserDto::getId, Function.identity()));
     }
 
-    OrderDto enrichWithUser(OrderDto dto, UserDto user) {
+    private OrderDto enrichWithUser(OrderDto dto, UserDto user) {
         return new OrderDto(dto.id(), dto.status(), dto.creationDate(), dto.items(), user);
     }
-
 }

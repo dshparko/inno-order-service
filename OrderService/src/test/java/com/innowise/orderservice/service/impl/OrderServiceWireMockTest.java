@@ -24,8 +24,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -106,17 +104,14 @@ class OrderServiceWireMockTest {
         CreateOrderItemDto itemDto = new CreateOrderItemDto(testItemId, 2);
         OrderDto createDto = new OrderDto(null, OrderStatus.NEW, LocalDate.now(), List.of(itemDto), null);
 
-        Mono<OrderDto> resultMono = orderService.createOrder(createDto);
+        OrderDto result = orderService.createOrder(createDto);
 
-        StepVerifier.create(resultMono)
-                .expectNextMatches(result ->
-                        result != null &&
-                                result.user() != null &&
-                                "alice@example.com".equals(result.user().getEmail()) &&
-                                OrderStatus.NEW.equals(result.status())
-                )
-                .verifyComplete();
+        assertThat(result).isNotNull();
+        assertThat(result.user()).isNotNull();
+        assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
+        assertThat(result.status()).isEqualTo(OrderStatus.NEW);
     }
+
 
     @Test
     void shouldGetOrderByIdWithMockedUser() {
@@ -135,14 +130,14 @@ class OrderServiceWireMockTest {
 
         Order saved = orderRepository.save(order);
 
-        StepVerifier.create(orderService.getOrderById(saved.getId()))
-                .assertNext(result -> {
-                    assertThat(result).isNotNull();
-                    assertThat(result.id()).isEqualTo(saved.getId());
-                    assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
-                })
-                .verifyComplete();
+        OrderDto result = orderService.getOrderById(saved.getId());
+
+        assertThat(result).isNotNull();
+        assertThat(result.id()).isEqualTo(saved.getId());
+        assertThat(result.user()).isNotNull();
+        assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
     }
+
 
     @Test
     void shouldDeleteOrderSuccessfully() {

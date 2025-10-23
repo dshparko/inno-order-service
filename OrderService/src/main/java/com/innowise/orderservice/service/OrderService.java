@@ -4,8 +4,6 @@ import com.innowise.orderservice.model.dto.OrderDto;
 import com.innowise.orderservice.model.dto.OrderFilterDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 /**
  * Service interface for managing {@link com.innowise.orderservice.model.entity.Order} entities.
@@ -20,7 +18,7 @@ public interface OrderService {
      * @param createDto the data required to create a new order
      * @return the created {@link OrderDto} with generated ID and details
      */
-    Mono<OrderDto> createOrder(OrderDto createDto);
+    OrderDto createOrder(OrderDto createDto);
 
     /**
      * Retrieves an order by its unique identifier.
@@ -28,7 +26,7 @@ public interface OrderService {
      * @param id the ID of the order to retrieve
      * @return the corresponding {@link OrderDto} if found
      */
-    Mono<OrderDto> getOrderById(Long id);
+    OrderDto getOrderById(Long id);
 
     /**
      * Updates an existing order with the provided data.
@@ -37,7 +35,7 @@ public interface OrderService {
      * @param updatedDto the updated order details
      * @return the updated {@link OrderDto}
      */
-    Mono<OrderDto> updateOrder(Long id, OrderDto updatedDto);
+    OrderDto updateOrder(Long id, OrderDto updatedDto);
 
     /**
      * Deletes an order by its unique identifier.
@@ -53,5 +51,5 @@ public interface OrderService {
      * @param pageable pagination and sorting information
      * @return a paginated list of matching {@link OrderDto} results
      */
-    Flux<Page<OrderDto>> searchOrders(OrderFilterDto filter, Pageable pageable);
+    Page<OrderDto> searchOrders(OrderFilterDto filter, Pageable pageable);
 }
