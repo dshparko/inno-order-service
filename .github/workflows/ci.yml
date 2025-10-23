@@ -23,13 +23,6 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-      - name: Cache Maven packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
 
       - name: Install Maven
         run: |
@@ -66,32 +59,15 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-      - name: Cache Maven packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
 
       - name: Install Maven
         run: |
           sudo apt-get update
           sudo apt-get install -y maven
 
-      - name: Wait for Postgres to be ready
-        run: |
-          for i in {1..10}; do
-            nc -z localhost 5432 && echo "Postgres is up!" && break
-            echo "Waiting for Postgres..."
-            sleep 3
-          done
-
       - name: Run tests
         working-directory: OrderService
         env:
-          TESTCONTAINERS_RYUK_DISABLED: true
-          TESTCONTAINERS_CHECKS_DISABLE: true
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/orders
           SPRING_DATASOURCE_USERNAME: test
           SPRING_DATASOURCE_PASSWORD: test
@@ -110,13 +86,6 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-      - name: Cache Maven packages
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-
 
       - name: Install Maven
         run: |
