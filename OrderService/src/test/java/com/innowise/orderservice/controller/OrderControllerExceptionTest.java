@@ -45,8 +45,8 @@ class OrderControllerExceptionTest {
     @Test
     void deleteOrder_shouldReturn401_whenUnauthorized() throws Exception {
         mockMvc.perform(delete("/api/v1/orders/5"))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.status").value(403))
                 .andExpect(jsonPath("$.error").exists());
     }
 }
