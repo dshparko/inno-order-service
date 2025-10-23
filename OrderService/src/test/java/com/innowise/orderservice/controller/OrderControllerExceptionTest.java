@@ -47,4 +47,17 @@ class OrderControllerExceptionTest {
         mockMvc.perform(delete("/api/v1/orders/5"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void shouldReturn500_onGenericException() throws Exception {
+        when(orderService.getOrderById(anyLong()))
+                .thenThrow(new RuntimeException("Unexpected error"));
+
+        mockMvc.perform(get("/api/v1/orders/1"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.error").value("Unexpected error"))
+                .andExpect(jsonPath("$.path").value("/api/v1/orders/1"));
+    }
 }
