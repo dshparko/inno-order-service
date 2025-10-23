@@ -43,6 +43,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y maven
 
+      - name: Install Docker CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+
+      - name: Enable Docker for Testcontainers
+        run: |
+          docker info
+          docker version
+
       - name: Build with Maven
         run: mvn clean install
 
