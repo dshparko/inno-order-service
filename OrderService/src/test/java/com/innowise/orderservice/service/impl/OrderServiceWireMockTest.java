@@ -24,6 +24,8 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -36,7 +38,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @Testcontainers
 @ActiveProfiles("test")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class OrderServiceWireMockTest {
     @Container
@@ -104,11 +106,16 @@ class OrderServiceWireMockTest {
         CreateOrderItemDto itemDto = new CreateOrderItemDto(testItemId, 2);
         OrderDto createDto = new OrderDto(null, OrderStatus.NEW, LocalDate.now(), List.of(itemDto), null);
 
-        OrderDto result = orderService.createOrder(createDto).block();
+        Mono<OrderDto> resultMono = orderService.createOrder(createDto);
 
-        assertThat(result).isNotNull();
-        assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
-        assertThat(result.status()).isEqualTo(OrderStatus.NEW);
+        StepVerifier.create(resultMono)
+                .expectNextMatches(result ->
+                        result != null &&
+                                result.user() != null &&
+                                "alice@example.com".equals(result.user().getEmail()) &&
+                                OrderStatus.NEW.equals(result.status())
+                )
+                .verifyComplete();
     }
 
     @Test
@@ -128,11 +135,13 @@ class OrderServiceWireMockTest {
 
         Order saved = orderRepository.save(order);
 
-        OrderDto result = orderService.getOrderById(saved.getId()).block();
-
-        assertThat(result).isNotNull();
-        assertThat(result.id()).isEqualTo(saved.getId());
-        assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
+        StepVerifier.create(orderService.getOrderById(saved.getId()))
+                .assertNext(result -> {
+                    assertThat(result).isNotNull();
+                    assertThat(result.id()).isEqualTo(saved.getId());
+                    assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
+                })
+                .verifyComplete();
     }
 
     @Test
