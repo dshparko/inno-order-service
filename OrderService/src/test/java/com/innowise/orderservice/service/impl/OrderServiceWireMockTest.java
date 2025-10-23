@@ -45,10 +45,12 @@ class OrderServiceWireMockTest {
     private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
 
     @DynamicPropertySource
-    private static void configureProperties(DynamicPropertyRegistry registry) {
+    static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
         registry.add("spring.datasource.username", postgres::getUsername);
         registry.add("spring.datasource.password", postgres::getPassword);
+        registry.add("user-service.url", () -> "http://localhost:" + wiremock.getPort());
+        registry.add("user-service.path", () -> "/api/v1/users");
     }
 
     @Autowired
@@ -64,7 +66,7 @@ class OrderServiceWireMockTest {
 
     @RegisterExtension
     private static final WireMockExtension wiremock = WireMockExtension.newInstance()
-            .options(wireMockConfig().port(8083))
+            .options(wireMockConfig().dynamicPort())
             .build();
 
     @BeforeEach

@@ -12,3 +12,10 @@ spring:
     open-in-view: false
   main:
     allow-bean-definition-overriding: true
+logging:
+  level:
+    org.springframework.web.reactive.function.client.ExchangeFunctions: TRACE
+    reactor.netty.http.client: DEBUG
+user-service:
+  url: http://localhost:8083
+  path: /api/v1/users
