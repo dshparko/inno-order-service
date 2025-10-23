@@ -36,7 +36,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OrderServiceWireMockTest {
 
-    private WireMockServer wiremock;
+    private static WireMockServer wiremock;
 
     @Autowired
     private OrderService orderService;
@@ -55,15 +55,17 @@ class OrderServiceWireMockTest {
     }
 
     @BeforeAll
-    void startWireMock() {
+    static void startWireMock() {
         wiremock = new WireMockServer(wireMockConfig().port(8089));
         wiremock.start();
         configureFor("localhost", 8089);
     }
 
     @AfterAll
-    void stopWireMock() {
-        wiremock.stop();
+    static void stopWireMock() {
+        if (wiremock != null) {
+            wiremock.stop();
+        }
     }
 
     @BeforeEach
