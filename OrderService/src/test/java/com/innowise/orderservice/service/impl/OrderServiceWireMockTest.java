@@ -1,6 +1,7 @@
 package com.innowise.orderservice.service.impl;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.innowise.orderservice.config.JwtTokenProvider;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
 import com.innowise.orderservice.model.dto.OrderDto;
@@ -22,6 +23,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -44,6 +46,11 @@ class OrderServiceWireMockTest {
     @Container
     private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
 
+    @RegisterExtension
+    private static final WireMockExtension wiremock = WireMockExtension.newInstance()
+            .options(wireMockConfig().dynamicPort())
+            .build();
+
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", postgres::getJdbcUrl);
@@ -52,6 +59,9 @@ class OrderServiceWireMockTest {
         registry.add("user-service.url", () -> "http://localhost:" + wiremock.getPort());
         registry.add("user-service.path", () -> "/api/v1/users");
     }
+
+    @MockitoBean
+    private JwtTokenProvider jwtTokenProvider;
 
     @Autowired
     private OrderService orderService;
@@ -64,10 +74,6 @@ class OrderServiceWireMockTest {
 
     private Long testItemId;
 
-    @RegisterExtension
-    private static final WireMockExtension wiremock = WireMockExtension.newInstance()
-            .options(wireMockConfig().dynamicPort())
-            .build();
 
     @BeforeEach
     void setup() {
