@@ -1,7 +1,6 @@
 package com.innowise.orderservice.service.impl;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.innowise.orderservice.OrderServiceApplication;
+import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
 import com.innowise.orderservice.model.dto.OrderDto;
@@ -12,15 +11,19 @@ import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import com.innowise.orderservice.service.OrderService;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
@@ -33,17 +36,20 @@ import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMoc
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @Testcontainers
-@SpringBootTest(classes = OrderServiceApplication.class,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@AutoConfigureMockMvc
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class OrderServiceWireMockTest {
-    private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
-            .withDatabaseName("orders")
-            .withUsername("test")
-            .withPassword("test");
+    @Container
+    private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
 
-    private static WireMockServer wiremock;
+    @DynamicPropertySource
+    private static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+    }
 
     @Autowired
     private OrderService orderService;
@@ -56,22 +62,13 @@ class OrderServiceWireMockTest {
 
     private Long testItemId;
 
-    @DynamicPropertySource
-    static void overrideProps(DynamicPropertyRegistry registry) {
-        postgres.start();
-        wiremock = new WireMockServer(wireMockConfig().dynamicPort());
-        wiremock.start();
-
-        registry.add("spring.datasource.url", postgres::getJdbcUrl);
-        registry.add("spring.datasource.username", postgres::getUsername);
-        registry.add("spring.datasource.password", postgres::getPassword);
-        registry.add("user-service.url", () -> "http://localhost:" + wiremock.port());
-        registry.add("user-service.path", () -> "/api/v1/users");
-    }
+    @RegisterExtension
+    private static final WireMockExtension wiremock = WireMockExtension.newInstance()
+            .options(wireMockConfig().port(8083))
+            .build();
 
     @BeforeEach
     void setup() {
-        configureFor("localhost", wiremock.port());
 
         wiremock.stubFor(get(urlPathEqualTo("/api/v1/users"))
                 .withQueryParam("email", equalTo("alice@example.com"))
@@ -102,12 +99,6 @@ class OrderServiceWireMockTest {
         itemRepository.deleteAll();
         wiremock.resetAll();
         SecurityContextHolder.clearContext();
-    }
-
-    @AfterAll
-    static void tearDown() {
-        if (wiremock != null) wiremock.stop();
-        if (postgres != null) postgres.stop();
     }
 
     @Test
