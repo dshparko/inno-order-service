@@ -8,10 +8,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.test.context.ActiveProfiles;
 
 import static com.innowise.orderservice.config.AuthConstant.CONTENT_TYPE;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-
+@ActiveProfiles("test")
 class JwtAuthenticationEntryPointTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper()

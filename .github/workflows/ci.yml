@@ -43,7 +43,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres"
+          --health-cmd="pg_isready -U test"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
@@ -65,8 +65,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y maven
 
+      - name: Wait for Postgres to be ready
+        run: |
+          for i in {1..10}; do
+            nc -z localhost 5432 && echo "Postgres is up!" && break
+            echo "Waiting for Postgres..."
+            sleep 3
+          done
+
       - name: Run tests
-        run: mvn test
+        working-directory: OrderService
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/orders
+          SPRING_DATASOURCE_USERNAME: test
+          SPRING_DATASOURCE_PASSWORD: test
+        run: mvn --fail-at-end test -Dspring.profiles.active=test
 
   sonar:
     runs-on: ubuntu-latest
