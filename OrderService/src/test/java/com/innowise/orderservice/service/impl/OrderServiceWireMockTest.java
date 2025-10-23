@@ -1,6 +1,7 @@
 package com.innowise.orderservice.service.impl;
 
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.innowise.orderservice.OrderServiceApplication;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
 import com.innowise.orderservice.model.dto.OrderDto;
@@ -31,7 +32,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(classes = OrderServiceApplication.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWireMock(port = 8089)
 @ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
@@ -45,6 +46,7 @@ class OrderServiceWireMockTest {
     @Autowired
     private OrderRepository orderRepository;
     private Long testItemId;
+
     @BeforeEach
     void setupSecurityContext() {
         Authentication auth = new UsernamePasswordAuthenticationToken("alice@example.com", "mocked-jwt-token");
