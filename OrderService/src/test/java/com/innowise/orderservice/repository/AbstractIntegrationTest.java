@@ -11,8 +11,6 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @DataJpaTest
 @ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
-
-
     @SuppressWarnings("resource")
     private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
             .withDatabaseName("orders")
@@ -22,8 +20,6 @@ public abstract class AbstractIntegrationTest {
     @BeforeAll
     static void startContainer() {
         postgres.start();
-        System.out.println("Active profile: " + System.getProperty("spring.profiles.active"));
-
         System.setProperty("DB_URL", postgres.getJdbcUrl());
         System.setProperty("DB_USERNAME", postgres.getUsername());
         System.setProperty("DB_PASSWORD", postgres.getPassword());

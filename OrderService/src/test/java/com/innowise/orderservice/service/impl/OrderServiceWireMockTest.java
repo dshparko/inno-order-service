@@ -20,6 +20,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,11 +32,26 @@ import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
+@Testcontainers
 @SpringBootTest(classes = OrderServiceApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class OrderServiceWireMockTest {
+    @SuppressWarnings("resource")
+    private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16")
+            .withDatabaseName("orders")
+            .withUsername("test")
+            .withPassword("test");
+
+    @BeforeAll
+    static void startContainer() {
+        postgres.start();
+        System.setProperty("DB_URL", postgres.getJdbcUrl());
+        System.setProperty("DB_USERNAME", postgres.getUsername());
+        System.setProperty("DB_PASSWORD", postgres.getPassword());
+
+    }
 
     private static WireMockServer wiremock;
 

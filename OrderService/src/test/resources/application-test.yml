@@ -1,13 +1,13 @@
-user-service:
-  url: ${wiremock.server.base-url}
-  path: /api/v1/users
 spring:
-  jpa:
-    open-in-view: false
-  main:
-    allow-bean-definition-overriding: true
   datasource:
     hikari:
       max-lifetime: 1200000
       connection-timeout: 20000
       validation-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+  main:
+    allow-bean-definition-overriding: true
