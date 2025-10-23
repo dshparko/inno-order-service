@@ -1,5 +1,5 @@
 user-service:
-  url: http://localhost:8089
+  url: ${wiremock.server.base-url}
   path: /api/v1/users
 spring:
   jpa:
