@@ -10,7 +10,12 @@ package com.innowise.orderservice.config;
 public final class AuthConstant {
     private AuthConstant() {
     }
+
+    public static final String IDS_PARAM = "ids";
     public static final String SLASH = "/";
+    public static final String QUERY_PREFIX = "?";
+    public static final String PARAM_SEPARATOR = "&";
+    public static final String KEY_VALUE_SEPARATOR = "=";
     public static final String AUTH_HEADER = "Authorization";
     public static final String TOKEN_PREFIX = "Bearer ";
     public static final String ROLE_PREFIX = "ROLE_";
