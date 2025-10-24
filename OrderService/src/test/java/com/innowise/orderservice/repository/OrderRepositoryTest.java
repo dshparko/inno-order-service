@@ -2,15 +2,13 @@ package com.innowise.orderservice.repository;
 
 
 import com.innowise.orderservice.model.OrderStatus;
-import com.innowise.orderservice.model.entity.*;
+import com.innowise.orderservice.model.entity.Item;
+import com.innowise.orderservice.model.entity.Order;
+import com.innowise.orderservice.model.entity.OrderItem;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
