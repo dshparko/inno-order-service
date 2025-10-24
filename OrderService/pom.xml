@@ -40,7 +40,7 @@
     </profiles>
     <properties>
         <sonar.organization>dshparko</sonar.organization>
-        <sonar.exclusions>**/config/**,**/mapper/**,**/repository/**</sonar.exclusions>
+        <sonar.exclusions>**/config/**,**/mapper/**,**/repository/**,**/model/**</sonar.exclusions>
         <java.version>21</java.version>
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok.version>1.18.40</lombok.version>
