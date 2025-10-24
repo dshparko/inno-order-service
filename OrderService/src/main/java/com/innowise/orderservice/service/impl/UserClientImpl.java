@@ -33,10 +33,9 @@ import static com.innowise.orderservice.config.AuthConstant.SLASH;
  * @Version 1.0
  */
 @Service
-
 public class UserClientImpl implements UserClient {
     private final JwtTokenProvider jwtTokenProvider;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     @Value("${user-service.url}")
     private String userServiceUrl;
@@ -46,10 +45,12 @@ public class UserClientImpl implements UserClient {
 
     public UserClientImpl(JwtTokenProvider jwtTokenProvider,
                           @Value("${user-service.url}") String userServiceUrl,
-                          @Value("${user-service.path}") String userApiPath) {
+                          @Value("${user-service.path}") String userApiPath,
+                          RestTemplate restTemplate) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.userServiceUrl = userServiceUrl;
         this.userApiPath = userApiPath;
+        this.restTemplate = restTemplate;
     }
 
     @CircuitBreaker(name = "user-service", fallbackMethod = "fallbackGetUser")

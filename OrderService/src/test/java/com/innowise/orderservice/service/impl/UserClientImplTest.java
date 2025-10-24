@@ -44,7 +44,7 @@ class UserClientImplTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
 
-        userClient = new UserClientImpl(jwtTokenProvider, baseUrl, apiPath);
+        userClient = new UserClientImpl(jwtTokenProvider, baseUrl, apiPath, restTemplate);
 
         try {
             var field = UserClientImpl.class.getDeclaredField("restTemplate");
