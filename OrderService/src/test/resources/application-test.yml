@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/orders
+    username: test
+    password: test
+    hikari:
+      max-lifetime: 1200000
+      connection-timeout: 20000
+      validation-timeout: 5000
+  liquibase:
+    enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+  main:
+    allow-bean-definition-overriding: true
+logging:
+  level:
+    org.springframework.web.reactive.function.client.ExchangeFunctions: TRACE
+    reactor.netty.http.client: DEBUG
+user-service:
+  url: http://localhost:8083
+  path: /api/v1/users
+jwt:
+  secret: test-secret
