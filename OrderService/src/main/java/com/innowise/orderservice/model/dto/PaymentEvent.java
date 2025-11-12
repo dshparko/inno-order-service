@@ -12,8 +12,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class PaymentEvent {
 
-    private String paymentId;
-    private String orderId;
+    private Long paymentId;
+    private Long orderId;
     private PaymentStatus status;
 
 }
