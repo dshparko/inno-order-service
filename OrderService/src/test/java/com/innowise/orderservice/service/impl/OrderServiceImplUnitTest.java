@@ -3,6 +3,7 @@ package com.innowise.orderservice.service.impl;
 
 import com.innowise.orderservice.config.JwtEmailExtractor;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
+import com.innowise.orderservice.kafka.OrderProducer;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
@@ -37,7 +38,8 @@ class OrderServiceImplUnitTest {
 
     @InjectMocks
     private OrderServiceImpl orderService;
-
+    @Mock
+    private OrderProducer orderProducer;
     @Mock
     private OrderRepository orderRepository;
     @Mock

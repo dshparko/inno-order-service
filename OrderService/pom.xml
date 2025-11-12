@@ -39,6 +39,7 @@
         </profile>
     </profiles>
     <properties>
+        <testcontainers.version>1.20.3</testcontainers.version>
         <sonar.organization>dshparko</sonar.organization>
         <sonar.exclusions>**/config/**,**/mapper/**,**/repository/**,**/model/**</sonar.exclusions>
         <java.version>21</java.version>
@@ -54,10 +55,18 @@
     </properties>
     <dependencyManagement>
         <dependencies>
+
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
                 <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

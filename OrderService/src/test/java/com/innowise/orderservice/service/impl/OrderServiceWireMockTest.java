@@ -1,16 +1,22 @@
 package com.innowise.orderservice.service.impl;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
+import com.innowise.orderservice.config.JwtEmailExtractor;
 import com.innowise.orderservice.config.JwtTokenProvider;
+import com.innowise.orderservice.exception.ResourceNotFoundException;
+import com.innowise.orderservice.kafka.OrderProducer;
 import com.innowise.orderservice.model.OrderStatus;
+import com.innowise.orderservice.model.PaymentStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
 import com.innowise.orderservice.model.dto.OrderDto;
+import com.innowise.orderservice.model.dto.userservice.UserDto;
 import com.innowise.orderservice.model.entity.Item;
 import com.innowise.orderservice.model.entity.Order;
 import com.innowise.orderservice.model.entity.OrderItem;
 import com.innowise.orderservice.repository.ItemRepository;
 import com.innowise.orderservice.repository.OrderRepository;
 import com.innowise.orderservice.service.OrderService;
+import com.innowise.orderservice.service.UserClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,9 +24,6 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -35,19 +38,19 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.get;
-import static com.github.tomakehurst.wiremock.client.WireMock.okJson;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.*;
 
 @Testcontainers
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class OrderServiceWireMockTest {
+
     @Container
     private static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16");
 
@@ -69,6 +72,15 @@ class OrderServiceWireMockTest {
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
 
+    @MockitoBean
+    private JwtEmailExtractor jwtEmailExtractor;
+
+    @MockitoBean
+    private UserClient userClient;
+
+    @MockitoBean
+    private OrderProducer orderProducer;
+
     @Autowired
     private OrderService orderService;
 
@@ -80,10 +92,8 @@ class OrderServiceWireMockTest {
 
     private Long testItemId;
 
-
     @BeforeEach
     void setup() {
-
         wiremock.stubFor(get(urlPathEqualTo("/api/v1/users"))
                 .withQueryParam("email", equalTo("alice@example.com"))
                 .willReturn(okJson("""
@@ -99,9 +109,9 @@ class OrderServiceWireMockTest {
                         }
                         """)));
 
-        Authentication auth =
-                new UsernamePasswordAuthenticationToken("alice@example.com", "mocked-jwt-token");
-        SecurityContextHolder.getContext().setAuthentication(auth);
+        when(jwtEmailExtractor.extractEmail()).thenReturn("alice@example.com");
+        when(userClient.getUserByEmail("alice@example.com"))
+                .thenReturn(new UserDto(1L, "Darya", "Shparko", "alice@example.com", LocalDate.of(2011, 11, 11), List.of()));
 
         Item item = itemRepository.save(new Item(null, "Test item", BigDecimal.valueOf(10.0)));
         testItemId = item.getId();
@@ -112,35 +122,35 @@ class OrderServiceWireMockTest {
         orderRepository.deleteAll();
         itemRepository.deleteAll();
         wiremock.resetAll();
-        SecurityContextHolder.clearContext();
     }
 
     @Test
-    void shouldCreateOrderWithMockedUser() {
+    void shouldCreateOrderAndCallKafka() {
         CreateOrderItemDto itemDto = new CreateOrderItemDto(testItemId, 2);
-        OrderDto createDto = new OrderDto(null, OrderStatus.NEW, LocalDate.now(), List.of(itemDto), null);
+        OrderDto dto = new OrderDto(null, OrderStatus.NEW, LocalDate.now(), List.of(itemDto), null);
 
-        OrderDto result = orderService.createOrder(createDto);
+        OrderDto result = orderService.createOrder(dto);
 
         assertThat(result).isNotNull();
         assertThat(result.user()).isNotNull();
         assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
+        assertThat(result.items()).hasSize(1);
         assertThat(result.status()).isEqualTo(OrderStatus.NEW);
+
+        // Проверка, что Kafka отправлен
+        verify(orderProducer, times(1)).sendCreateOrder(any());
     }
 
-
     @Test
-    void shouldGetOrderByIdWithMockedUser() {
-        Item item = itemRepository.save(new Item(null, "Item A", BigDecimal.valueOf(15.0)));
-
+    void shouldGetOrderById() {
         OrderItem orderItem = new OrderItem();
-        orderItem.setItem(item);
+        orderItem.setItem(itemRepository.findById(testItemId).get());
         orderItem.setQuantity(1);
 
         Order order = new Order();
+        order.setUserId(1L);
         order.setStatus(OrderStatus.NEW);
         order.setCreationDate(LocalDate.now());
-        order.setUserId(1L);
         order.setItems(List.of(orderItem));
         orderItem.setOrder(order);
 
@@ -154,27 +164,47 @@ class OrderServiceWireMockTest {
         assertThat(result.user().getEmail()).isEqualTo("alice@example.com");
     }
 
-
     @Test
-    void shouldDeleteOrderSuccessfully() {
-        Item item = itemRepository.save(new Item(null, "Item C", BigDecimal.valueOf(25.0)));
-
-        OrderItem orderItem = new OrderItem();
-        orderItem.setItem(item);
-        orderItem.setQuantity(1);
-
+    void shouldDeleteOrder() {
         Order order = new Order();
+        order.setUserId(1L);
         order.setStatus(OrderStatus.NEW);
         order.setCreationDate(LocalDate.now());
-        order.setUserId(1L);
-        orderItem.setOrder(order);
-        order.setItems(List.of(orderItem));
-
+        order.setItems(List.of());
         Order saved = orderRepository.save(order);
 
         orderService.deleteOrder(saved.getId());
 
         Optional<Order> deleted = orderRepository.findById(saved.getId());
         assertThat(deleted).isEmpty();
+    }
+
+    @Test
+    void shouldUpdateOrderStatusCorrectly() {
+        Order order = new Order();
+        order.setUserId(1L);
+        order.setStatus(OrderStatus.NEW);
+        order.setCreationDate(LocalDate.now());
+        order.setItems(List.of());
+        Order saved = orderRepository.save(order);
+
+        orderService.updateOrderStatus(saved.getId(), PaymentStatus.SUCCESS);
+
+        Order updated = orderRepository.findById(saved.getId()).get();
+        assertThat(updated.getStatus()).isEqualTo(OrderStatus.PROCESSING);
+    }
+
+    @Test
+    void shouldThrowOnInvalidStatusTransition() {
+        Order order = new Order();
+        order.setUserId(1L);
+        order.setStatus(OrderStatus.DELIVERED);
+        order.setCreationDate(LocalDate.now());
+        order.setItems(List.of());
+        Order saved = orderRepository.save(order);
+
+        Long savedId = saved.getId();
+        assertThatThrownBy(() -> orderService.updateOrderStatus(savedId, PaymentStatus.SUCCESS))
+                .isInstanceOf(ResourceNotFoundException.class);
     }
 }
