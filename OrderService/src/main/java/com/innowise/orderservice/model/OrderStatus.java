@@ -16,4 +16,12 @@ public enum OrderStatus {
             case CANCELLED -> false;
         };
     }
+
+    public OrderStatus resolveTargetStatus(PaymentStatus paymentStatus) {
+        return switch (paymentStatus) {
+            case SUCCESS -> OrderStatus.PROCESSING;
+            case FAILED -> OrderStatus.CANCELLED;
+        };
+    }
+
 }
