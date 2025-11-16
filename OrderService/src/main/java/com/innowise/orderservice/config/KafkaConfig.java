@@ -1,53 +1,38 @@
 package com.innowise.orderservice.config;
 
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-
-import org.apache.kafka.clients.consumer.ConsumerConfig;
+import com.innowise.orderservice.model.dto.OrderEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
-import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.core.ProducerFactory;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @Configuration
 public class KafkaConfig {
 
-    private static final String BOOTSTRAP_SERVERS = "localhost:9092";
-    private static final String GROUP_ID = "order-group";
-
-    private static final Class<?> KEY_SERIALIZER = StringSerializer.class;
-    private static final Class<?> VALUE_SERIALIZER = StringSerializer.class;
-
-    private static final Class<?> KEY_DESERIALIZER = StringDeserializer.class;
-    private static final Class<?> VALUE_DESERIALIZER = StringDeserializer.class;
+    @Value("${spring.kafka.bootstrap-servers}")
+    private String bootstrapServers;
 
     @Bean
-    public KafkaTemplate<String, String> kafkaTemplate() {
-        Map<String, Object> config = Map.of(
-                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS,
-                ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, KEY_SERIALIZER,
-                ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, VALUE_SERIALIZER
-        );
-        return new KafkaTemplate<>(new DefaultKafkaProducerFactory<>(config));
+    public ProducerFactory<String, OrderEvent> orderEventProducerFactory() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, org.springframework.kafka.support.serializer.JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(configProps);
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
-        Map<String, Object> config = Map.of(
-                ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS,
-                ConsumerConfig.GROUP_ID_CONFIG, GROUP_ID,
-                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, KEY_DESERIALIZER,
-                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, VALUE_DESERIALIZER
-        );
-        var factory = new ConcurrentKafkaListenerContainerFactory<String, String>();
-        factory.setConsumerFactory(new DefaultKafkaConsumerFactory<>(config));
-        return factory;
+    public KafkaTemplate<String, OrderEvent> orderEventKafkaTemplate() {
+        return new KafkaTemplate<>(orderEventProducerFactory());
     }
+
 
 }
 
