@@ -32,7 +32,7 @@ public interface OrderService {
     /**
      * Updates an existing order with the provided data.
      *
-     * @param id the ID of the order to update
+     * @param id         the ID of the order to update
      * @param updatedDto the updated order details
      * @return the updated {@link OrderDto}
      */
@@ -56,7 +56,7 @@ public interface OrderService {
     /**
      * Searches for orders using filtering criteria and pagination.
      *
-     * @param filter the filter criteria for searching orders
+     * @param filter   the filter criteria for searching orders
      * @param pageable pagination and sorting information
      * @return a paginated list of matching {@link OrderDto} results
      */

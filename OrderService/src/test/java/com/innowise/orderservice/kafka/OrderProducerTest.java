@@ -1,5 +1,6 @@
 package com.innowise.orderservice.kafka;
 
+import com.innowise.orderservice.messaging.OrderProducer;
 import com.innowise.orderservice.model.dto.OrderEvent;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
@@ -102,7 +103,7 @@ class OrderProducerTest {
         event.setUserId(456L);
         event.setAmount(BigDecimal.valueOf(99.99));
 
-        OrderProducer producer = new OrderProducer(kafkaTemplate);
+        OrderProducer producer = new OrderProducer(kafkaTemplate, "create_order");
         // when
         producer.sendCreateOrder(event);
 

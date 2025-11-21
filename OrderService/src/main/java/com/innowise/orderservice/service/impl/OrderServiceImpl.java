@@ -2,7 +2,7 @@ package com.innowise.orderservice.service.impl;
 
 import com.innowise.orderservice.config.JwtEmailExtractor;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
-import com.innowise.orderservice.kafka.OrderProducer;
+import com.innowise.orderservice.messaging.OrderProducer;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.PaymentStatus;
@@ -20,6 +20,7 @@ import com.innowise.orderservice.service.OrderService;
 import com.innowise.orderservice.service.UserClient;
 import com.innowise.orderservice.specification.OrderSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
@@ -65,7 +67,7 @@ public class OrderServiceImpl implements OrderService {
 
         BigDecimal amount = getItemsPrice(saved);
 
-        sendKafkaEvent(saved.getId(), saved.getUserId(),amount);
+        sendKafkaEvent(saved.getId(), saved.getUserId(), amount);
 
         return enrichWithUser(orderMapper.map(saved), user);
     }
@@ -133,17 +135,43 @@ public class OrderServiceImpl implements OrderService {
 
     @Transactional
     public void updateOrderStatus(Long orderId, PaymentStatus status) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+        Order order = loadOrder(orderId);
+        OrderStatus targetStatus = resolveTargetStatus(order, status);
 
-
-        OrderStatus targetStatus = order.getStatus().resolveTargetStatus(status);
-        if (order.getStatus().canTransitionTo(targetStatus)) {
-            order.setStatus(targetStatus);
-            orderRepository.save(order);
-        } else {
-            throw new ResourceNotFoundException("Invalid status transition: " + order.getStatus() + " -> " + targetStatus);
+        if (isStatusAlreadyUpdated(order, targetStatus)) {
+            log.info("Order {} already has status '{}', skipping update", orderId, targetStatus);
+            return;
         }
+
+        if (canTransition(order, targetStatus)) {
+            applyStatusUpdate(order, targetStatus);
+            log.info("Order {} updated to status '{}'", orderId, targetStatus);
+        } else {
+            throw new IllegalStateException("Invalid status transition: "
+                    + order.getStatus() + " -> " + targetStatus);
+        }
+    }
+
+    private Order loadOrder(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+    }
+
+    private OrderStatus resolveTargetStatus(Order order, PaymentStatus paymentStatus) {
+        return order.getStatus().resolveTargetStatus(paymentStatus);
+    }
+
+    private boolean isStatusAlreadyUpdated(Order order, OrderStatus targetStatus) {
+        return order.getStatus() == targetStatus;
+    }
+
+    private boolean canTransition(Order order, OrderStatus targetStatus) {
+        return order.getStatus().canTransitionTo(targetStatus);
+    }
+
+    private void applyStatusUpdate(Order order, OrderStatus targetStatus) {
+        order.setStatus(targetStatus);
+        orderRepository.save(order);
     }
 
     private List<OrderItem> mergeOrderItems(Order existing, List<CreateOrderItemDto> incomingDtos) {
