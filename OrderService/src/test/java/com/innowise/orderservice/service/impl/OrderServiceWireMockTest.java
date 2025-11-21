@@ -3,7 +3,6 @@ package com.innowise.orderservice.service.impl;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import com.innowise.orderservice.config.JwtEmailExtractor;
 import com.innowise.orderservice.config.JwtTokenProvider;
-import com.innowise.orderservice.exception.ResourceNotFoundException;
 import com.innowise.orderservice.messaging.OrderProducer;
 import com.innowise.orderservice.model.OrderStatus;
 import com.innowise.orderservice.model.PaymentStatus;
@@ -211,6 +210,6 @@ class OrderServiceWireMockTest {
 
         Long savedId = saved.getId();
         assertThatThrownBy(() -> orderService.updateOrderStatus(savedId, PaymentStatus.SUCCESS))
-                .isInstanceOf(ResourceNotFoundException.class);
+                .isInstanceOf(IllegalStateException.class);
     }
 }
