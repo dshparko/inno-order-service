@@ -1,5 +1,6 @@
 package com.innowise.orderservice.service;
 
+import com.innowise.orderservice.model.PaymentStatus;
 import com.innowise.orderservice.model.dto.OrderDto;
 import com.innowise.orderservice.model.dto.OrderFilterDto;
 import org.springframework.data.domain.Page;
@@ -31,11 +32,19 @@ public interface OrderService {
     /**
      * Updates an existing order with the provided data.
      *
-     * @param id the ID of the order to update
+     * @param id         the ID of the order to update
      * @param updatedDto the updated order details
      * @return the updated {@link OrderDto}
      */
     OrderDto updateOrder(Long id, OrderDto updatedDto);
+
+    /**
+     * Updates the status of an existing order.
+     *
+     * @param orderId the unique identifier of the order whose status should be updated
+     * @param status  the new {@link PaymentStatus} to assign to the order
+     */
+    void updateOrderStatus(Long orderId, PaymentStatus status);
 
     /**
      * Deletes an order by its unique identifier.
@@ -47,7 +56,7 @@ public interface OrderService {
     /**
      * Searches for orders using filtering criteria and pagination.
      *
-     * @param filter the filter criteria for searching orders
+     * @param filter   the filter criteria for searching orders
      * @param pageable pagination and sorting information
      * @return a paginated list of matching {@link OrderDto} results
      */

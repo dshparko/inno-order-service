@@ -2,10 +2,13 @@ package com.innowise.orderservice.service.impl;
 
 import com.innowise.orderservice.config.JwtEmailExtractor;
 import com.innowise.orderservice.exception.ResourceNotFoundException;
+import com.innowise.orderservice.messaging.OrderProducer;
 import com.innowise.orderservice.mapper.OrderMapper;
 import com.innowise.orderservice.model.OrderStatus;
+import com.innowise.orderservice.model.PaymentStatus;
 import com.innowise.orderservice.model.dto.CreateOrderItemDto;
 import com.innowise.orderservice.model.dto.OrderDto;
+import com.innowise.orderservice.model.dto.OrderEvent;
 import com.innowise.orderservice.model.dto.OrderFilterDto;
 import com.innowise.orderservice.model.dto.userservice.UserDto;
 import com.innowise.orderservice.model.entity.Item;
@@ -17,12 +20,13 @@ import com.innowise.orderservice.service.OrderService;
 import com.innowise.orderservice.service.UserClient;
 import com.innowise.orderservice.specification.OrderSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +43,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
@@ -46,6 +51,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final UserClient userClient;
     private final JwtEmailExtractor jwtEmailExtractor;
+    private final OrderProducer orderProducer;
 
     @Transactional
     public OrderDto createOrder(OrderDto createDto) {
@@ -59,7 +65,26 @@ public class OrderServiceImpl implements OrderService {
         enrichItems(order.getItems(), order);
         Order saved = orderRepository.save(order);
 
+        BigDecimal amount = getItemsPrice(saved);
+
+        sendKafkaEvent(saved.getId(), saved.getUserId(), amount);
+
         return enrichWithUser(orderMapper.map(saved), user);
+    }
+
+    private BigDecimal getItemsPrice(Order order) {
+        return order.getItems().stream()
+                .map(item -> item.getItem().getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private void sendKafkaEvent(Long orderId, Long userId, BigDecimal amount) {
+        OrderEvent event = new OrderEvent();
+        event.setOrderId(orderId);
+        event.setUserId(userId);
+        event.setAmount(amount);
+
+        orderProducer.sendCreateOrder(event);
     }
 
     @Transactional(readOnly = true)
@@ -106,6 +131,47 @@ public class OrderServiceImpl implements OrderService {
             UserDto user = userMap.get(order.getUserId());
             return enrichWithUser(dto, user);
         });
+    }
+
+    @Transactional
+    public void updateOrderStatus(Long orderId, PaymentStatus status) {
+        Order order = loadOrder(orderId);
+        OrderStatus targetStatus = resolveTargetStatus(order, status);
+
+        if (isStatusAlreadyUpdated(order, targetStatus)) {
+            log.info("Order {} already has status '{}', skipping update", orderId, targetStatus);
+            return;
+        }
+
+        if (canTransition(order, targetStatus)) {
+            applyStatusUpdate(order, targetStatus);
+            log.info("Order {} updated to status '{}'", orderId, targetStatus);
+        } else {
+            throw new IllegalStateException("Invalid status transition: "
+                    + order.getStatus() + " -> " + targetStatus);
+        }
+    }
+
+    private Order loadOrder(Long orderId) {
+        return orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+    }
+
+    private OrderStatus resolveTargetStatus(Order order, PaymentStatus paymentStatus) {
+        return order.getStatus().resolveTargetStatus(paymentStatus);
+    }
+
+    private boolean isStatusAlreadyUpdated(Order order, OrderStatus targetStatus) {
+        return order.getStatus() == targetStatus;
+    }
+
+    private boolean canTransition(Order order, OrderStatus targetStatus) {
+        return order.getStatus().canTransitionTo(targetStatus);
+    }
+
+    private void applyStatusUpdate(Order order, OrderStatus targetStatus) {
+        order.setStatus(targetStatus);
+        orderRepository.save(order);
     }
 
     private List<OrderItem> mergeOrderItems(Order existing, List<CreateOrderItemDto> incomingDtos) {
