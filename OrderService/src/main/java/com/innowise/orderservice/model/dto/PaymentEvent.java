@@ -15,7 +15,7 @@ import lombok.Setter;
 public class PaymentEvent {
     @NotNull
     @Min(1)
-    private Long paymentId;
+    private String paymentId;
 
     @NotNull
     @Min(1)
